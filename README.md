@@ -1,4 +1,4 @@
-# 📖 Verbum Quiz
+# 📖 Cristão Quiz
 
 Jogo de quiz bíblico em Next.js: o sistema mostra um versículo e você precisa descobrir a **referência correta** (Livro capítulo:versículo). Jogue sozinho ou crie uma sala online e dispute com amigos em tempo real via **Supabase Realtime**.
 
@@ -24,7 +24,7 @@ Pré-requisito: **Node.js 18.17+** (recomendado Node 20). Verifique com `node -v
 
 ```bash
 # 1. Entre na pasta do projeto
-cd verbum-quiz
+cd quizz_biblia
 
 # 2. Instale as dependências
 npm install

@@ -5,9 +5,9 @@ export interface PlayerSession {
   roomId: string;
 }
 
-const SESSION_KEY = "verbum:session";
-const SOLO_NAME_KEY = "verbum:soloName";
-const SOLO_VERSION_KEY = "verbum:soloVersion";
+const SESSION_KEY = "cristao:session";
+const SOLO_NAME_KEY = "cristao:soloName";
+const SOLO_VERSION_KEY = "cristao:soloVersion";
 
 export function saveSession(session: PlayerSession) {
   if (typeof window === "undefined") return;

@@ -1,11 +1,11 @@
-/* Verbum Quiz — Service Worker
+/* Cristão Quiz — Service Worker
  * Estratégia:
  *  - Páginas (navegações): network-first com fallback para o cache
  *    -> o modo solo funciona offline após a primeira visita.
  *  - Assets estáticos (/_next/static, ícones, fontes): cache-first.
  *  - Chamadas ao Supabase nunca são cacheadas (multiplayer exige conexão).
  */
-const CACHE = "verbum-quiz-v2";
+const CACHE = "cristao-quiz-v3";
 const PRECACHE_URLS = ["/", "/solo", "/solo/jogar", "/amigos", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

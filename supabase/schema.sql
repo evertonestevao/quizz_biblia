@@ -1,5 +1,5 @@
 -- =====================================================================
--- Verbum Quiz - Schema Supabase
+-- Cristão Quiz - Schema Supabase
 -- Execute este arquivo inteiro no SQL Editor do Supabase.
 -- =====================================================================
 

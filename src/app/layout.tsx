@@ -3,14 +3,22 @@ import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Verbum Quiz — Você conhece as Escrituras?",
+  title: "Cristão Quiz — Você conhece as Escrituras?",
   description:
     "Leia o versículo, descubra a referência. Jogue sozinho ou desafie seus amigos em salas online em tempo real.",
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    title: "Cristão Quiz — Você conhece as Escrituras?",
+    description:
+      "Leia o versículo, descubra a referência. Jogue sozinho ou desafie seus amigos em salas online em tempo real.",
+    siteName: "Cristão Quiz",
+    locale: "pt_BR",
+    type: "website",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Verbum Quiz",
+    title: "Cristão Quiz",
   },
   icons: {
     icon: [
