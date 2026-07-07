@@ -1,0 +1,175 @@
+import { getSupabase } from "@/lib/supabase";
+import { generateQuestions } from "@/lib/bible";
+import { loadBooks } from "@/lib/versions";
+import { generateRoomCode } from "@/lib/utils";
+import type { Player, Room, RoomQuestion, SubmitAnswerResult } from "@/types/room";
+
+function requireSupabase() {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error(
+      "Supabase não configurado. Preencha NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY no arquivo .env.local."
+    );
+  }
+  return supabase;
+}
+
+/** Diferença (ms) entre o relógio do servidor e o do navegador. */
+export async function getServerTimeOffsetMs(): Promise<number> {
+  const supabase = requireSupabase();
+  const before = Date.now();
+  const { data, error } = await supabase.rpc("get_server_time");
+  const after = Date.now();
+  if (error || !data) return 0;
+  const serverMs = new Date(data as string).getTime();
+  const midpoint = (before + after) / 2;
+  return serverMs - midpoint;
+}
+
+export async function createRoom(params: {
+  hostName: string;
+  questionDuration: number;
+  questionCount: number;
+  bibleVersion: string;
+}): Promise<{ room: Room; player: Player }> {
+  const supabase = requireSupabase();
+
+  let room: Room | null = null;
+  // Tenta alguns códigos até achar um livre (colisão é raríssima)
+  for (let attempt = 0; attempt < 5 && !room; attempt++) {
+    const code = generateRoomCode();
+    const { data, error } = await supabase
+      .from("rooms")
+      .insert({
+        code,
+        status: "lobby",
+        question_count: params.questionCount,
+        question_duration: params.questionDuration,
+        current_question_index: 0,
+        bible_version: params.bibleVersion,
+      })
+      .select()
+      .single();
+    if (!error && data) room = data as Room;
+  }
+  if (!room) throw new Error("Não foi possível criar a sala. Tente novamente.");
+
+  const { data: playerData, error: playerError } = await supabase
+    .from("players")
+    .insert({ room_id: room.id, name: params.hostName })
+    .select()
+    .single();
+  if (playerError || !playerData) throw new Error("Não foi possível criar o jogador anfitrião.");
+  const player = playerData as Player;
+
+  const { error: hostError } = await supabase
+    .from("rooms")
+    .update({ host_player_id: player.id })
+    .eq("id", room.id);
+  if (hostError) throw new Error("Não foi possível registrar o anfitrião da sala.");
+
+  return { room: { ...room, host_player_id: player.id }, player };
+}
+
+export async function fetchRoomByCode(code: string): Promise<Room | null> {
+  const supabase = requireSupabase();
+  const { data } = await supabase
+    .from("rooms")
+    .select()
+    .eq("code", code.toUpperCase())
+    .maybeSingle();
+  return (data as Room) ?? null;
+}
+
+export async function joinRoom(code: string, name: string): Promise<{ room: Room; player: Player }> {
+  const supabase = requireSupabase();
+  const room = await fetchRoomByCode(code);
+  if (!room) throw new Error("Sala não encontrada. Confira o código.");
+  if (room.status !== "lobby") throw new Error("Esta sala já iniciou a partida.");
+
+  const { data, error } = await supabase
+    .from("players")
+    .insert({ room_id: room.id, name })
+    .select()
+    .single();
+  if (error || !data) throw new Error("Não foi possível entrar na sala.");
+  return { room, player: data as Player };
+}
+
+export async function fetchPlayers(roomId: string): Promise<Player[]> {
+  const supabase = requireSupabase();
+  const { data } = await supabase
+    .from("players")
+    .select()
+    .eq("room_id", roomId)
+    .order("joined_at", { ascending: true });
+  return (data as Player[]) ?? [];
+}
+
+export async function fetchRoomById(roomId: string): Promise<Room | null> {
+  const supabase = requireSupabase();
+  const { data } = await supabase.from("rooms").select().eq("id", roomId).maybeSingle();
+  return (data as Room) ?? null;
+}
+
+export async function fetchQuestion(roomId: string, questionIndex: number): Promise<RoomQuestion | null> {
+  const supabase = requireSupabase();
+  const { data } = await supabase
+    .from("room_questions")
+    .select()
+    .eq("room_id", roomId)
+    .eq("question_index", questionIndex)
+    .maybeSingle();
+  return (data as RoomQuestion) ?? null;
+}
+
+/** Host: gera as perguntas, grava no banco e inicia a partida. */
+export async function startGame(room: Room): Promise<void> {
+  const supabase = requireSupabase();
+
+  const { count } = await supabase
+    .from("room_questions")
+    .select("id", { count: "exact", head: true })
+    .eq("room_id", room.id);
+
+  if (!count) {
+    const books = await loadBooks(room.bible_version);
+    const questions = generateQuestions(books, room.question_count);
+    const rows = questions.map((q, index) => ({
+      room_id: room.id,
+      question_index: index,
+      verse_text: q.verseText,
+      correct_reference: q.correctReference,
+      options: q.options,
+      duration_seconds: room.question_duration,
+      status: "waiting",
+    }));
+    const { error } = await supabase.from("room_questions").insert(rows);
+    if (error) throw new Error("Não foi possível gerar as perguntas da sala.");
+  }
+
+  const { error } = await supabase.rpc("start_game", { p_room_id: room.id });
+  if (error) throw new Error("Não foi possível iniciar a partida.");
+}
+
+/** Host: encerra a pergunta atual e avança (ou finaliza a sala). */
+export async function advanceQuestion(roomId: string): Promise<void> {
+  const supabase = requireSupabase();
+  await supabase.rpc("next_question", { p_room_id: roomId });
+}
+
+/** Envia resposta. A validação de tempo, duplicidade e pontuação é feita no servidor. */
+export async function submitAnswer(params: {
+  questionId: string;
+  playerId: string;
+  selectedReference: string;
+}): Promise<SubmitAnswerResult> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase.rpc("submit_answer", {
+    p_question_id: params.questionId,
+    p_player_id: params.playerId,
+    p_selected: params.selectedReference,
+  });
+  if (error) throw new Error("Não foi possível enviar a resposta.");
+  return data as SubmitAnswerResult;
+}
