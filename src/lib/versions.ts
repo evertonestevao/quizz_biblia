@@ -1,6 +1,6 @@
 import type { Book } from "@/types/bible";
 
-export type BibleVersionId = "acf" | "nvi";
+export type BibleVersionId = "acf" | "nvi" | "aa";
 
 export interface BibleVersion {
   id: BibleVersionId;
@@ -19,6 +19,11 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     id: "nvi",
     label: "NVI — Nova Versão Internacional",
     loader: async () => (await import("@/data/nvi.json")).default as Book[],
+  },
+  {
+    id: "aa",
+    label: "AA — Almeida Atualizada",
+    loader: async () => (await import("@/data/aa.json")).default as Book[],
   },
 ];
 

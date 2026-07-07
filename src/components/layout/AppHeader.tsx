@@ -9,7 +9,7 @@ export function AppHeader() {
           <BookOpenText className="h-5 w-5" />
         </span>
         <span className="font-display text-lg font-semibold tracking-[0.18em] text-parchment">
-          VERBUM <span className="gold-text">QUIZ</span>
+          CRISTÃO <span className="gold-text">QUIZ</span>
         </span>
       </Link>
     </header>
