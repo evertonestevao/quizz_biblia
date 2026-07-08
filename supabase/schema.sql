@@ -13,10 +13,11 @@ create table if not exists public.rooms (
   id uuid primary key default gen_random_uuid(),
   code text unique not null,
   host_player_id uuid,
-  status text not null default 'lobby' check (status in ('lobby', 'playing', 'finished')),
+  status text not null default 'lobby' check (status in ('lobby', 'countdown', 'playing', 'finished')),
   question_count integer not null default 10,
   question_duration integer not null default 20,
   current_question_index integer not null default 0,
+  countdown_started_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -86,6 +87,15 @@ alter table public.rooms
 
 alter table public.room_questions
   add column if not exists ends_at timestamptz;
+
+-- Estado transitório de contagem regressiva antes da 1ª pergunta.
+alter table public.rooms
+  add column if not exists countdown_started_at timestamptz;
+
+alter table public.rooms drop constraint if exists rooms_status_check;
+alter table public.rooms
+  add constraint rooms_status_check
+  check (status in ('lobby', 'countdown', 'playing', 'finished'));
 
 -- ---------------------------------------------------------------------
 -- Índices
@@ -161,19 +171,51 @@ as $$
   select now();
 $$;
 
--- Inicia a partida: marca a sala como "playing" e ativa a pergunta 0
-create or replace function public.start_game(p_room_id uuid)
+-- Inicia a contagem regressiva: marca a sala como "countdown" e grava o instante
+-- de início (fonte da verdade para todos os clientes sincronizarem o contador).
+-- Retorna o timestamp gravado (ou null se a sala não estava no lobby).
+create or replace function public.start_countdown(p_room_id uuid)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_started timestamptz;
+begin
+  update rooms
+     set status = 'countdown',
+         current_question_index = 0,
+         countdown_started_at = now()
+   where id = p_room_id
+     and status = 'lobby'
+  returning countdown_started_at into v_started;
+
+  return v_started;
+end;
+$$;
+
+-- Encerra a contagem regressiva: marca a sala como "playing" e ativa a pergunta 0.
+-- Idempotente (guardado pelo status "countdown" + lock), então qualquer avanço
+-- duplicado disparado ao fim do contador é ignorado sem reiniciar o started_at.
+create or replace function public.activate_first_question(p_room_id uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_room rooms%rowtype;
 begin
+  select * into v_room from rooms where id = p_room_id for update;
+  if not found or v_room.status <> 'countdown' then
+    return;
+  end if;
+
   update rooms
      set status = 'playing',
          current_question_index = 0
-   where id = p_room_id
-     and status = 'lobby';
+   where id = p_room_id;
 
   update room_questions
      set status = 'active',
@@ -305,7 +347,8 @@ end;
 $$;
 
 grant execute on function public.get_server_time() to anon, authenticated;
-grant execute on function public.start_game(uuid) to anon, authenticated;
+grant execute on function public.start_countdown(uuid) to anon, authenticated;
+grant execute on function public.activate_first_question(uuid) to anon, authenticated;
 grant execute on function public.next_question(uuid) to anon, authenticated;
 grant execute on function public.submit_answer(uuid, uuid, text) to anon, authenticated;
 

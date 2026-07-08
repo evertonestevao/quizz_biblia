@@ -9,9 +9,19 @@ import { PlayerNameForm } from "@/components/room/PlayerNameForm";
 import { PlayerList } from "@/components/room/PlayerList";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
-import { fetchPlayers, fetchRoomByCode, joinRoom, startGame, trackPlayerLocation } from "@/lib/room";
+import {
+  COUNTDOWN_EVENT,
+  COUNTDOWN_SECONDS,
+  fetchPlayers,
+  fetchRoomByCode,
+  joinRoom,
+  startGame,
+  trackPlayerLocation,
+  type CountdownBroadcast,
+} from "@/lib/room";
 import { getSession, saveSession } from "@/lib/storage";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Player, Room } from "@/types/room";
 import { getVersion } from "@/lib/versions";
 import { Check, Copy, Play, Timer, ListOrdered } from "lucide-react";
@@ -32,6 +42,7 @@ export default function RoomLobbyPage() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const roomRef = useRef<Room | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const refresh = useCallback(async () => {
     const current = roomRef.current;
@@ -43,7 +54,7 @@ export default function RoomLobbyPage() {
     if (freshRoom) {
       roomRef.current = freshRoom;
       setRoom(freshRoom);
-      if (freshRoom.status === "playing") {
+      if (freshRoom.status === "countdown" || freshRoom.status === "playing") {
         router.push(`/amigos/sala/${freshRoom.code}/jogar`);
       } else if (freshRoom.status === "finished") {
         router.push(`/amigos/sala/${freshRoom.code}/resultado`);
@@ -102,10 +113,15 @@ export default function RoomLobbyPage() {
         { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${current.id}` },
         () => refresh()
       )
+      // Aviso imediato de que a contagem regressiva começou (redundante com o
+      // status "countdown" persistido na sala, que cobre refresh/reconexão).
+      .on("broadcast", { event: COUNTDOWN_EVENT }, () => refresh())
       .subscribe();
+    channelRef.current = channel;
 
     const interval = setInterval(refresh, 3000);
     return () => {
+      channelRef.current = null;
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
@@ -138,7 +154,15 @@ export default function RoomLobbyPage() {
     setStarting(true);
     setError("");
     try {
-      await startGame(room);
+      const countdownStartedAt = await startGame(room);
+      // Avisa todos os jogadores (via broadcast) que a contagem começou, enviando
+      // o instante de início para que todos sincronizem o contador pelo mesmo
+      // relógio. Quem entrar/atualizar depois lê o mesmo valor da sala.
+      const payload: CountdownBroadcast = {
+        countdown_started_at: countdownStartedAt,
+        countdown_seconds: COUNTDOWN_SECONDS,
+      };
+      channelRef.current?.send({ type: "broadcast", event: COUNTDOWN_EVENT, payload });
       router.push(`/amigos/sala/${room.code}/jogar`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao iniciar a partida.");

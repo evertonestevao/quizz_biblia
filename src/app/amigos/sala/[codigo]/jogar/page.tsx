@@ -8,9 +8,12 @@ import { AnswerOption } from "@/components/game/AnswerOption";
 import { TimerBar } from "@/components/game/TimerBar";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
+import { CountdownScreen } from "@/components/game/CountdownScreen";
 import { Button } from "@/components/ui/button";
 import {
   advanceQuestion,
+  beginFirstQuestion,
+  COUNTDOWN_SECONDS,
   fetchPlayers,
   fetchQuestion,
   fetchRoomByCode,
@@ -37,6 +40,7 @@ export default function MultiplayerGamePage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitAnswerResult | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [countdownLeft, setCountdownLeft] = useState(COUNTDOWN_SECONDS);
 
   const playerIdRef = useRef<string | null>(null);
   const roomRef = useRef<Room | null>(null);
@@ -44,6 +48,7 @@ export default function MultiplayerGamePage() {
   const offsetRef = useRef(0);
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advancedForRef = useRef<string | null>(null);
+  const countdownBegunRef = useRef<string | null>(null);
 
   const isHost = room?.host_player_id != null && room.host_player_id === playerIdRef.current;
   const deadlineShortened = Boolean(
@@ -174,6 +179,26 @@ export default function MultiplayerGamePage() {
     return () => clearInterval(interval);
   }, [question?.id, question?.status, computeSecondsLeft]);
 
+  // Contagem regressiva "Prepare-se": todos os clientes calculam o número
+  // exibido a partir de countdown_started_at (do servidor), então terminam
+  // próximo ao mesmo instante real, independente da latência de cada um.
+  // Ao zerar, o host ativa a 1ª pergunta (reusa o fluxo normal de start).
+  useEffect(() => {
+    if (room?.status !== "countdown" || !room.countdown_started_at) return;
+    const endsAt = new Date(room.countdown_started_at).getTime() + COUNTDOWN_SECONDS * 1000;
+    const tick = () => {
+      const left = Math.ceil((endsAt - serverNow()) / 1000);
+      setCountdownLeft(Math.max(0, left));
+      if (left <= 0 && isHost && countdownBegunRef.current !== room.id) {
+        countdownBegunRef.current = room.id;
+        beginFirstQuestion(room.id);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 250);
+    return () => clearInterval(interval);
+  }, [room?.status, room?.countdown_started_at, room?.id, isHost, serverNow]);
+
   // Host: agenda o avanço automático no fim do prazo. Reexecuta quando
   // ends_at muda (encurtado pelo servidor quando todos respondem).
   useEffect(() => {
@@ -241,6 +266,15 @@ export default function MultiplayerGamePage() {
             actionLabel="Voltar"
           />
         </div>
+      </main>
+    );
+  }
+
+  if (room?.status === "countdown") {
+    return (
+      <main className="min-h-dvh">
+        <AppHeader />
+        <CountdownScreen secondsLeft={countdownLeft} />
       </main>
     );
   }

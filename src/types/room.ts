@@ -1,4 +1,4 @@
-export type RoomStatus = "lobby" | "playing" | "finished";
+export type RoomStatus = "lobby" | "countdown" | "playing" | "finished";
 export type QuestionStatus = "waiting" | "active" | "finished";
 
 export interface Room {
@@ -9,6 +9,7 @@ export interface Room {
   question_count: number;
   question_duration: number;
   current_question_index: number;
+  countdown_started_at: string | null;
   bible_version: string;
   created_at: string;
 }

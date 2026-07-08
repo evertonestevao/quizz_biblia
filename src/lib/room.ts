@@ -2,13 +2,29 @@ import { getSupabase } from "@/lib/supabase";
 import { generateQuestions } from "@/lib/bible";
 import { loadBooks } from "@/lib/versions";
 import { generateRoomCode } from "@/lib/utils";
-import type { Player, Room, RoomQuestion, SubmitAnswerResult } from "@/types/room";
+import type {
+  Player,
+  Room,
+  RoomQuestion,
+  SubmitAnswerResult,
+} from "@/types/room";
+
+/** Duração (segundos) da contagem regressiva "Prepare-se" antes da 1ª pergunta. */
+export const COUNTDOWN_SECONDS = 6;
+
+/** Evento de broadcast disparado no canal do lobby quando a contagem começa. */
+export const COUNTDOWN_EVENT = "countdown";
+
+export interface CountdownBroadcast {
+  countdown_started_at: string;
+  countdown_seconds: number;
+}
 
 function requireSupabase() {
   const supabase = getSupabase();
   if (!supabase) {
     throw new Error(
-      "Supabase não configurado. Preencha NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY no arquivo .env.local."
+      "Supabase não configurado. Preencha NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY no arquivo .env.local.",
     );
   }
   return supabase;
@@ -59,14 +75,16 @@ export async function createRoom(params: {
     .insert({ room_id: room.id, name: params.hostName })
     .select()
     .single();
-  if (playerError || !playerData) throw new Error("Não foi possível criar o jogador anfitrião.");
+  if (playerError || !playerData)
+    throw new Error("Não foi possível criar o jogador anfitrião.");
   const player = playerData as Player;
 
   const { error: hostError } = await supabase
     .from("rooms")
     .update({ host_player_id: player.id })
     .eq("id", room.id);
-  if (hostError) throw new Error("Não foi possível registrar o anfitrião da sala.");
+  if (hostError)
+    throw new Error("Não foi possível registrar o anfitrião da sala.");
 
   return { room: { ...room, host_player_id: player.id }, player };
 }
@@ -96,7 +114,7 @@ export interface RematchBroadcast {
 export async function createRematch(
   previousRoom: Room,
   players: Player[],
-  hostPlayerId: string
+  hostPlayerId: string,
 ): Promise<RematchResult> {
   const supabase = requireSupabase();
 
@@ -117,7 +135,8 @@ export async function createRematch(
       .single();
     if (!error && data) newRoom = data as Room;
   }
-  if (!newRoom) throw new Error("Não foi possível criar a nova sala. Tente novamente.");
+  if (!newRoom)
+    throw new Error("Não foi possível criar a nova sala. Tente novamente.");
 
   // Migra os jogadores (pontuação zerada). Insert em paralelo, cada um retornando
   // o próprio id novo, para montar o mapa id antigo -> id novo sem ambiguidade.
@@ -132,25 +151,33 @@ export async function createRematch(
           .single();
         if (error || !data) throw new Error("player_insert_failed");
         return { oldId: p.id, newId: (data as Player).id };
-      })
+      }),
     );
   } catch {
-    throw new Error("Não foi possível migrar os jogadores para a nova sala. Tente novamente.");
+    throw new Error(
+      "Não foi possível migrar os jogadores para a nova sala. Tente novamente.",
+    );
   }
 
   const mapping: PlayerIdMap = {};
   for (const m of migrated) mapping[m.oldId] = m.newId;
 
   const hostNewPlayerId = mapping[hostPlayerId];
-  if (!hostNewPlayerId) throw new Error("Não foi possível migrar o anfitrião para a nova sala.");
+  if (!hostNewPlayerId)
+    throw new Error("Não foi possível migrar o anfitrião para a nova sala.");
 
   const { error: hostError } = await supabase
     .from("rooms")
     .update({ host_player_id: hostNewPlayerId })
     .eq("id", newRoom.id);
-  if (hostError) throw new Error("Não foi possível definir o anfitrião da nova sala.");
+  if (hostError)
+    throw new Error("Não foi possível definir o anfitrião da nova sala.");
 
-  return { newRoom: { ...newRoom, host_player_id: hostNewPlayerId }, mapping, hostNewPlayerId };
+  return {
+    newRoom: { ...newRoom, host_player_id: hostNewPlayerId },
+    mapping,
+    hostNewPlayerId,
+  };
 }
 
 export async function fetchRoomByCode(code: string): Promise<Room | null> {
@@ -163,11 +190,15 @@ export async function fetchRoomByCode(code: string): Promise<Room | null> {
   return (data as Room) ?? null;
 }
 
-export async function joinRoom(code: string, name: string): Promise<{ room: Room; player: Player }> {
+export async function joinRoom(
+  code: string,
+  name: string,
+): Promise<{ room: Room; player: Player }> {
   const supabase = requireSupabase();
   const room = await fetchRoomByCode(code);
   if (!room) throw new Error("Sala não encontrada. Confira o código.");
-  if (room.status !== "lobby") throw new Error("Esta sala já iniciou a partida.");
+  if (room.status !== "lobby")
+    throw new Error("Esta sala já iniciou a partida.");
 
   const { data, error } = await supabase
     .from("players")
@@ -207,11 +238,18 @@ export async function fetchPlayers(roomId: string): Promise<Player[]> {
 
 export async function fetchRoomById(roomId: string): Promise<Room | null> {
   const supabase = requireSupabase();
-  const { data } = await supabase.from("rooms").select().eq("id", roomId).maybeSingle();
+  const { data } = await supabase
+    .from("rooms")
+    .select()
+    .eq("id", roomId)
+    .maybeSingle();
   return (data as Room) ?? null;
 }
 
-export async function fetchQuestion(roomId: string, questionIndex: number): Promise<RoomQuestion | null> {
+export async function fetchQuestion(
+  roomId: string,
+  questionIndex: number,
+): Promise<RoomQuestion | null> {
   const supabase = requireSupabase();
   const { data } = await supabase
     .from("room_questions")
@@ -222,8 +260,13 @@ export async function fetchQuestion(roomId: string, questionIndex: number): Prom
   return (data as RoomQuestion) ?? null;
 }
 
-/** Host: gera as perguntas, grava no banco e inicia a partida. */
-export async function startGame(room: Room): Promise<void> {
+/**
+ * Host: gera as perguntas, grava no banco e dispara a contagem regressiva
+ * ("Prepare-se"). A sala passa para o estado "countdown"; a 1ª pergunta só é
+ * ativada ao fim do contador, via {@link beginFirstQuestion}. Retorna o instante
+ * de início da contagem (para sincronizar todos os clientes).
+ */
+export async function startGame(room: Room): Promise<string> {
   const supabase = requireSupabase();
 
   const { count } = await supabase
@@ -247,8 +290,21 @@ export async function startGame(room: Room): Promise<void> {
     if (error) throw new Error("Não foi possível gerar as perguntas da sala.");
   }
 
-  const { error } = await supabase.rpc("start_game", { p_room_id: room.id });
-  if (error) throw new Error("Não foi possível iniciar a partida.");
+  const { data, error } = await supabase.rpc("start_countdown", {
+    p_room_id: room.id,
+  });
+  if (error || !data) throw new Error("Não foi possível iniciar a partida.");
+  return data as string;
+}
+
+/**
+ * Encerra a contagem regressiva e ativa a 1ª pergunta. Idempotente no servidor
+ * (guardado pelo status "countdown"), então pode ser chamado sem risco de
+ * reiniciar o started_at caso já tenha sido disparado.
+ */
+export async function beginFirstQuestion(roomId: string): Promise<void> {
+  const supabase = requireSupabase();
+  await supabase.rpc("activate_first_question", { p_room_id: roomId });
 }
 
 /** Host: encerra a pergunta atual e avança (ou finaliza a sala). */

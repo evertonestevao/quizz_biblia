@@ -42,7 +42,7 @@ Abra **http://localhost:3000**. O **Modo Solo já funciona** nesse ponto, sem ne
 
 1. Crie um projeto gratuito em [supabase.com](https://supabase.com).
 2. No painel do projeto, abra **SQL Editor** → **New query**.
-3. Copie **todo** o conteúdo de [`supabase/schema.sql`](supabase/schema.sql), cole e clique em **Run**. Isso cria as tabelas, índices, políticas RLS, funções (`start_game`, `next_question`, `submit_answer`, `get_server_time`) e habilita o Realtime nas tabelas.
+3. Copie **todo** o conteúdo de [`supabase/schema.sql`](supabase/schema.sql), cole e clique em **Run**. Isso cria as tabelas, índices, políticas RLS, funções (`start_countdown`, `activate_first_question`, `next_question`, `submit_answer`, `get_server_time`) e habilita o Realtime nas tabelas.
 4. Vá em **Project Settings → API** e copie:
    - **Project URL**
    - **Publishable key** (em projetos antigos, a chave `anon public`)
