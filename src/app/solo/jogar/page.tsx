@@ -42,15 +42,20 @@ export default function SoloGamePage() {
     () => [
       { label: "Perguntas", value: stats.answered },
       { label: "Acertos", value: stats.correct },
-      { label: "Taxa de acerto", value: formatAccuracy(stats.correct, stats.answered) },
+      {
+        label: "Acertos %",
+        value: formatAccuracy(stats.correct, stats.answered),
+      },
     ],
-    [stats]
+    [stats],
   );
 
   function handleSelect(reference: string) {
     if (revealed || !question) return;
     setSelected(reference);
-    setStats((prev) => applySoloAnswer(prev, reference === question.correctReference));
+    setStats((prev) =>
+      applySoloAnswer(prev, reference === question.correctReference),
+    );
   }
 
   function nextQuestion() {
@@ -81,8 +86,11 @@ export default function SoloGamePage() {
       <div className="mx-auto max-w-2xl space-y-5 px-5">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted2">
-            Jogando como <span className="font-semibold text-gold-300">{playerName}</span>
-            {versionLabel && <span className="ml-2 text-xs text-muted2">· {versionLabel}</span>}
+            Jogando como{" "}
+            <span className="font-semibold text-gold-300">{playerName}</span>
+            {versionLabel && (
+              <span className="ml-2 text-xs text-muted2">· {versionLabel}</span>
+            )}
           </p>
           <Link href="/">
             <Button variant="ghost" size="sm">
@@ -124,7 +132,9 @@ export default function SoloGamePage() {
             </p>
             <p className="text-sm text-muted2">
               Resposta correta:{" "}
-              <span className="font-semibold text-gold-300">{question.correctReference}</span>
+              <span className="font-semibold text-gold-300">
+                {question.correctReference}
+              </span>
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button onClick={nextQuestion} size="lg">
