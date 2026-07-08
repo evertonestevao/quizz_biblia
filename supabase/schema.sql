@@ -55,6 +55,28 @@ create table if not exists public.answers (
   unique (question_id, player_id)
 );
 
+-- Localização aproximada (geo-IP) de onde cada jogador entrou numa sala.
+create table if not exists public.player_locations (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid references public.rooms(id) on delete cascade,
+  city text,
+  state text,
+  country text,
+  created_at timestamptz default now()
+);
+
+-- Cache de coordenadas por cidade (geocodificado uma vez via Nominatim/OSM).
+create table if not exists public.city_coordinates (
+  id uuid primary key default gen_random_uuid(),
+  city text,
+  state text,
+  country text,
+  lat double precision,
+  lng double precision,
+  created_at timestamptz not null default now(),
+  unique (city, state, country)
+);
+
 -- ---------------------------------------------------------------------
 -- Migrations (seguras para bancos já criados na v1)
 -- ---------------------------------------------------------------------
@@ -74,6 +96,7 @@ create index if not exists idx_players_room on public.players (room_id);
 create index if not exists idx_questions_room on public.room_questions (room_id, question_index);
 create index if not exists idx_answers_question on public.answers (question_id, answered_at);
 create index if not exists idx_answers_room on public.answers (room_id);
+create index if not exists idx_player_locations_room on public.player_locations (room_id);
 
 -- ---------------------------------------------------------------------
 -- RLS (políticas públicas simples enquanto não há login)
@@ -110,6 +133,20 @@ drop policy if exists "public read answers" on public.answers;
 drop policy if exists "public write answers" on public.answers;
 create policy "public read answers" on public.answers for select using (true);
 create policy "public write answers" on public.answers for insert with check (true);
+
+alter table public.player_locations enable row level security;
+drop policy if exists "public read player_locations" on public.player_locations;
+drop policy if exists "public write player_locations" on public.player_locations;
+create policy "public read player_locations" on public.player_locations for select using (true);
+create policy "public write player_locations" on public.player_locations for insert with check (true);
+
+alter table public.city_coordinates enable row level security;
+drop policy if exists "public read city_coordinates" on public.city_coordinates;
+drop policy if exists "public write city_coordinates" on public.city_coordinates;
+drop policy if exists "public update city_coordinates" on public.city_coordinates;
+create policy "public read city_coordinates" on public.city_coordinates for select using (true);
+create policy "public write city_coordinates" on public.city_coordinates for insert with check (true);
+create policy "public update city_coordinates" on public.city_coordinates for update using (true);
 
 -- ---------------------------------------------------------------------
 -- Funções (fonte da verdade para tempo e pontuação)

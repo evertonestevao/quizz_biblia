@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { createRoom } from "@/lib/room";
+import { createRoom, trackPlayerLocation } from "@/lib/room";
 import { saveSession } from "@/lib/storage";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { BIBLE_VERSIONS, DEFAULT_VERSION_ID } from "@/lib/versions";
@@ -34,7 +34,7 @@ export default function CriarSalaPage() {
     }
     if (!isSupabaseConfigured) {
       setError(
-        "Supabase não configurado. Preencha o arquivo .env.local para jogar com amigos. O Modo Solo funciona sem configuração."
+        "Supabase não configurado. Preencha o arquivo .env.local para jogar com amigos. O Modo Solo funciona sem configuração.",
       );
       return;
     }
@@ -47,6 +47,7 @@ export default function CriarSalaPage() {
         questionCount: count,
         bibleVersion: version,
       });
+      trackPlayerLocation(room.id);
       saveSession({
         playerId: player.id,
         playerName: player.name,
@@ -81,7 +82,7 @@ export default function CriarSalaPage() {
               id="host-name"
               value={name}
               maxLength={24}
-              placeholder="Ex.: Everton"
+              placeholder="Ex.: João"
               onChange={(event) => setName(event.target.value)}
               autoFocus
             />
@@ -135,7 +136,12 @@ export default function CriarSalaPage() {
 
           {error && <p className="text-sm text-red-300">{error}</p>}
 
-          <Button className="w-full" size="lg" onClick={handleCreate} disabled={loading}>
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleCreate}
+            disabled={loading}
+          >
             {loading ? "Criando sala..." : "Criar sala e gerar código"}
           </Button>
         </Card>

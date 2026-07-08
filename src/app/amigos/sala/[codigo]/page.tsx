@@ -9,7 +9,7 @@ import { PlayerNameForm } from "@/components/room/PlayerNameForm";
 import { PlayerList } from "@/components/room/PlayerList";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
-import { fetchPlayers, fetchRoomByCode, joinRoom, startGame } from "@/lib/room";
+import { fetchPlayers, fetchRoomByCode, joinRoom, startGame, trackPlayerLocation } from "@/lib/room";
 import { getSession, saveSession } from "@/lib/storage";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Player, Room } from "@/types/room";
@@ -116,6 +116,7 @@ export default function RoomLobbyPage() {
     setError("");
     try {
       const { room: joinedRoom, player } = await joinRoom(code, name);
+      trackPlayerLocation(joinedRoom.id);
       saveSession({
         playerId: player.id,
         playerName: player.name,

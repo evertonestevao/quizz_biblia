@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { RankingPodium } from "@/components/room/RankingPodium";
 import { ResultTable } from "@/components/room/ResultTable";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
 import { Button } from "@/components/ui/button";
-import { fetchPlayers, fetchRoomByCode } from "@/lib/room";
-import { getSession } from "@/lib/storage";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { createRematch, fetchPlayers, fetchRoomByCode } from "@/lib/room";
+import type { RematchBroadcast } from "@/lib/room";
+import { getSession, saveSession } from "@/lib/storage";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { rankPlayers } from "@/lib/scoring";
 import type { Player, Room } from "@/types/room";
 import { Home, RotateCcw } from "lucide-react";
@@ -19,11 +21,15 @@ import { Home, RotateCcw } from "lucide-react";
 export default function ResultadoPage() {
   const params = useParams<{ codigo: string }>();
   const code = (params.codigo ?? "").toUpperCase();
+  const router = useRouter();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
   const [playerId, setPlayerId] = useState<string | undefined>();
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -44,7 +50,66 @@ export default function ResultadoPage() {
     })();
   }, [code]);
 
+  // Realtime Broadcast: escuta o aviso de "nova sala" da revanche e redireciona
+  // automaticamente todos os jogadores desta tela para o lobby da sala nova.
+  useEffect(() => {
+    if (!room?.id) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`rematch:${room.id}`)
+      .on("broadcast", { event: "new_room" }, ({ payload }) => {
+        const data = payload as RematchBroadcast;
+        const session = getSession();
+        const newPlayerId = session ? data.mapping[session.playerId] : undefined;
+        if (session && newPlayerId) {
+          saveSession({
+            playerId: newPlayerId,
+            playerName: session.playerName,
+            roomCode: data.code,
+            roomId: data.roomId,
+          });
+        }
+        router.push(`/amigos/sala/${data.code}`);
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [room?.id, router]);
+
   const ranking = useMemo(() => rankPlayers(players), [players]);
+  const isHost = room?.host_player_id != null && room.host_player_id === playerId;
+
+  async function handlePlayAgain() {
+    if (!room || !isHost || !playerId) return;
+    setCreating(true);
+    setError("");
+    try {
+      const { newRoom, mapping, hostNewPlayerId } = await createRematch(room, players, playerId);
+      const session = getSession();
+      saveSession({
+        playerId: hostNewPlayerId,
+        playerName: session?.playerName ?? players.find((p) => p.id === playerId)?.name ?? "",
+        roomCode: newRoom.code,
+        roomId: newRoom.id,
+      });
+      // Avisa os demais jogadores (ainda nesta tela) sobre a nova sala.
+      await channelRef.current?.send({
+        type: "broadcast",
+        event: "new_room",
+        payload: { roomId: newRoom.id, code: newRoom.code, mapping } as RematchBroadcast,
+      });
+      router.push(`/amigos/sala/${newRoom.code}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao criar a nova sala.");
+      setCreating(false);
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -88,12 +153,19 @@ export default function ResultadoPage() {
 
         <ResultTable players={ranking} currentPlayerId={playerId} />
 
+        {error && <p className="text-center text-sm text-red-300">{error}</p>}
+
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/amigos/criar">
-            <Button size="lg">
-              <RotateCcw className="h-4 w-4" /> Jogar novamente
+          {isHost ? (
+            <Button size="lg" onClick={handlePlayAgain} disabled={creating}>
+              <RotateCcw className="h-4 w-4" />
+              {creating ? "Criando nova sala..." : "Jogar novamente"}
             </Button>
-          </Link>
+          ) : (
+            <p className="w-full text-center text-sm text-muted2">
+              Aguardando o anfitrião iniciar uma nova sala...
+            </p>
+          )}
           <Link href="/">
             <Button variant="subtle" size="lg">
               <Home className="h-4 w-4" /> Voltar ao início

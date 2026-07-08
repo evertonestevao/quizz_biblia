@@ -71,6 +71,88 @@ export async function createRoom(params: {
   return { room: { ...room, host_player_id: player.id }, player };
 }
 
+/** Mapa de id de jogador da sala anterior -> id na sala nova. */
+export type PlayerIdMap = Record<string, string>;
+
+export interface RematchResult {
+  newRoom: Room;
+  /** Correlação id antigo -> id novo, para cada cliente adotar seu novo jogador. */
+  mapping: PlayerIdMap;
+  hostNewPlayerId: string;
+}
+
+/** Payload do broadcast que avisa a sala anterior sobre a nova sala criada. */
+export interface RematchBroadcast {
+  roomId: string;
+  code: string;
+  mapping: PlayerIdMap;
+}
+
+/**
+ * Cria uma nova sala (revanche) repetindo as configurações da anterior e migra
+ * todos os jogadores para ela com pontuação zerada. O anfitrião também ganha um
+ * novo registro de jogador, para o qual a nova sala aponta como host.
+ */
+export async function createRematch(
+  previousRoom: Room,
+  players: Player[],
+  hostPlayerId: string
+): Promise<RematchResult> {
+  const supabase = requireSupabase();
+
+  let newRoom: Room | null = null;
+  for (let attempt = 0; attempt < 5 && !newRoom; attempt++) {
+    const code = generateRoomCode();
+    const { data, error } = await supabase
+      .from("rooms")
+      .insert({
+        code,
+        status: "lobby",
+        question_count: previousRoom.question_count,
+        question_duration: previousRoom.question_duration,
+        current_question_index: 0,
+        bible_version: previousRoom.bible_version,
+      })
+      .select()
+      .single();
+    if (!error && data) newRoom = data as Room;
+  }
+  if (!newRoom) throw new Error("Não foi possível criar a nova sala. Tente novamente.");
+
+  // Migra os jogadores (pontuação zerada). Insert em paralelo, cada um retornando
+  // o próprio id novo, para montar o mapa id antigo -> id novo sem ambiguidade.
+  let migrated: { oldId: string; newId: string }[];
+  try {
+    migrated = await Promise.all(
+      players.map(async (p) => {
+        const { data, error } = await supabase
+          .from("players")
+          .insert({ room_id: newRoom!.id, name: p.name })
+          .select()
+          .single();
+        if (error || !data) throw new Error("player_insert_failed");
+        return { oldId: p.id, newId: (data as Player).id };
+      })
+    );
+  } catch {
+    throw new Error("Não foi possível migrar os jogadores para a nova sala. Tente novamente.");
+  }
+
+  const mapping: PlayerIdMap = {};
+  for (const m of migrated) mapping[m.oldId] = m.newId;
+
+  const hostNewPlayerId = mapping[hostPlayerId];
+  if (!hostNewPlayerId) throw new Error("Não foi possível migrar o anfitrião para a nova sala.");
+
+  const { error: hostError } = await supabase
+    .from("rooms")
+    .update({ host_player_id: hostNewPlayerId })
+    .eq("id", newRoom.id);
+  if (hostError) throw new Error("Não foi possível definir o anfitrião da nova sala.");
+
+  return { newRoom: { ...newRoom, host_player_id: hostNewPlayerId }, mapping, hostNewPlayerId };
+}
+
 export async function fetchRoomByCode(code: string): Promise<Room | null> {
   const supabase = requireSupabase();
   const { data } = await supabase
@@ -94,6 +176,23 @@ export async function joinRoom(code: string, name: string): Promise<{ room: Room
     .single();
   if (error || !data) throw new Error("Não foi possível entrar na sala.");
   return { room, player: data as Player };
+}
+
+/**
+ * Registra (fire-and-forget) a localização aproximada do jogador via geo-IP no servidor.
+ * Não bloqueia nem atrasa o fluxo de entrada; falhas são ignoradas.
+ */
+export function trackPlayerLocation(roomId: string): void {
+  try {
+    void fetch("/api/track-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // ignora silenciosamente
+  }
 }
 
 export async function fetchPlayers(roomId: string): Promise<Player[]> {
