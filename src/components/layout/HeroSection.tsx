@@ -21,8 +21,7 @@ export function HeroSection() {
         className="mx-auto mt-5 max-w-xl animate-fadeUp text-base leading-relaxed text-muted2 sm:text-lg"
         style={{ animationDelay: "160ms" }}
       >
-        Leia o versículo e descubra onde ele está na Bíblia. Treine sozinho ou
-        crie uma sala e desafie seus amigos em tempo real.
+        Leia o versículo e descubra onde ele está na Bíblia.
       </p>
     </section>
   );
