@@ -21,7 +21,7 @@ export function HeroSection() {
         className="mx-auto mt-5 max-w-xl animate-fadeUp text-base leading-relaxed text-muted2 sm:text-lg"
         style={{ animationDelay: "160ms" }}
       >
-        Leia o versículo e descubra onde ele está na Bíblia.
+        Descubra onde o versículo está na Bíblia.
       </p>
     </section>
   );
