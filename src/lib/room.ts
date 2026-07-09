@@ -11,7 +11,7 @@ import type {
 } from "@/types/room";
 
 /** Duração (segundos) da contagem regressiva "Prepare-se" antes da 1ª pergunta. */
-export const COUNTDOWN_SECONDS = 6;
+export const COUNTDOWN_SECONDS = 5;
 
 /** Evento de broadcast disparado no canal do lobby quando a contagem começa. */
 export const COUNTDOWN_EVENT = "countdown";
@@ -73,7 +73,11 @@ export async function createRoom(params: {
 
   const { data: playerData, error: playerError } = await supabase
     .from("players")
-    .insert({ room_id: room.id, name: params.hostName, device_id: getDeviceId() })
+    .insert({
+      room_id: room.id,
+      name: params.hostName,
+      device_id: getDeviceId(),
+    })
     .select()
     .single();
   if (playerError || !playerData)
@@ -147,7 +151,11 @@ export async function createRematch(
       players.map(async (p) => {
         const { data, error } = await supabase
           .from("players")
-          .insert({ room_id: newRoom!.id, name: p.name, device_id: p.device_id ?? null })
+          .insert({
+            room_id: newRoom!.id,
+            name: p.name,
+            device_id: p.device_id ?? null,
+          })
           .select()
           .single();
         if (error || !data) throw new Error("player_insert_failed");

@@ -8,13 +8,14 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   fetchRooms,
   fetchLocations,
-  fetchDailyStats,
+  fetchAudienceReport,
   groupByCity,
   geocodeCities,
   type RoomSummary,
   type CityGroup,
-  type DailyStat,
+  type AudienceReport,
 } from "@/lib/admin";
+import { AudienceTrend } from "@/components/admin/AudienceTrend";
 import type { MapPoint } from "@/components/admin/LocationsMap";
 
 // Leaflet acessa `window`, então o mapa só pode renderizar no cliente.
@@ -33,9 +34,9 @@ export default function AdminStatsPage() {
   const [points, setPoints] = useState<MapPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [daily, setDaily] = useState<DailyStat[]>([]);
+  const [report, setReport] = useState<AudienceReport | null>(null);
 
-  // Carrega a lista de salas e o resumo diário uma vez.
+  // Carrega a lista de salas e o relatório de audiência uma vez.
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setError("Supabase não configurado.");
@@ -47,9 +48,9 @@ export default function AdminStatsPage() {
         if (r.length) setSelectedRoom(r[0].id);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar salas."));
-    fetchDailyStats()
-      .then(setDaily)
-      .catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar o resumo diário."));
+    fetchAudienceReport()
+      .then(setReport)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar a audiência."));
   }, []);
 
   const roomId = mode === "all" ? null : selectedRoom || null;
@@ -98,10 +99,69 @@ export default function AdminStatsPage() {
 
   const totalPlayers = useMemo(() => groups.reduce((sum, g) => sum + g.count, 0), [groups]);
 
+  const k = report?.kpis;
+  const nf = (n: number) => n.toLocaleString("pt-BR");
+
   return (
     <main className="mx-auto max-w-4xl px-5 py-8">
-      <h1 className="text-2xl font-semibold text-parchment">Estatísticas — Localização dos jogadores</h1>
-      <p className="mt-1 text-sm text-muted2">Painel interno. Origem aproximada (geo-IP) de quem jogou.</p>
+      <h1 className="text-2xl font-semibold text-parchment">Painel — Audiência &amp; Negócio</h1>
+      <p className="mt-1 text-sm text-muted2">
+        Painel interno. Alcance e engajamento por dispositivo (salas + solo), base para venda de
+        espaços publicitários.
+      </p>
+
+      {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+
+      <section className="mt-6">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-wide text-muted2">Dispositivos únicos</p>
+            <p className="mt-1 text-3xl font-semibold text-parchment">{k ? nf(k.unique30d) : "—"}</p>
+            <p className="mt-1 text-xs text-muted2">
+              últimos 30 dias{k ? ` · hoje ${nf(k.uniqueToday)} · 7d ${nf(k.unique7d)}` : ""}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-wide text-muted2">Sessões (30d)</p>
+            <p className="mt-1 text-3xl font-semibold text-parchment">{k ? nf(k.sessions30d) : "—"}</p>
+            <p className="mt-1 text-xs text-muted2">
+              {k ? `${nf(k.multiplayer30d)} salas · ${nf(k.solo30d)} solo (${Math.round(k.soloSharePct)}% solo)` : "—"}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-wide text-muted2">Novos dispositivos</p>
+            <p className="mt-1 text-3xl font-semibold text-parchment">{k ? nf(k.newDevices30d) : "—"}</p>
+            <p className="mt-1 text-xs text-muted2">
+              {k ? `${nf(k.returning30d)} recorrentes (2+ sessões)` : "últimos 30 dias"}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-wide text-muted2">Sessões / dispositivo</p>
+            <p className="mt-1 text-3xl font-semibold text-parchment">
+              {k ? k.sessionsPerDevice30d.toFixed(1) : "—"}
+            </p>
+            <p className="mt-1 text-xs text-muted2">engajamento médio (30d)</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/[0.14] bg-white/[0.03] p-5">
+          <h2 className="text-sm font-semibold text-parchment">Sessões por dia (14 dias)</h2>
+          <p className="mb-4 mt-0.5 text-xs text-muted2">Composição salas × solo. Passe o mouse para o detalhe do dia.</p>
+          {report ? (
+            <AudienceTrend data={report.daily} />
+          ) : (
+            <div className="grid h-48 place-items-center text-sm text-muted2">Carregando…</div>
+          )}
+        </div>
+      </section>
+
+      <hr className="my-10 border-white/[0.08]" />
+
+      <h2 className="text-lg font-semibold text-parchment">Localização dos jogadores</h2>
+      <p className="mt-1 text-sm text-muted2">Origem aproximada (geo-IP) de quem entrou nas salas.</p>
 
       <div className="mt-6 flex flex-wrap items-end gap-4">
         <div className="flex gap-2">
@@ -127,8 +187,6 @@ export default function AdminStatsPage() {
           </div>
         )}
       </div>
-
-      {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
 
       <div className="mt-4 flex items-center gap-4 text-sm text-muted2">
         <span>
@@ -171,26 +229,6 @@ export default function AdminStatsPage() {
         </table>
       )}
 
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold text-parchment">Últimos 10 dias</h2>
-        <p className="mt-1 text-sm text-muted2">Partidas criadas e jogadores por dia (fuso de São Paulo).</p>
-
-        {daily.length > 0 ? (
-          <ul className="mt-4 divide-y divide-white/[0.08] rounded-xl border border-white/[0.14]">
-            {daily.map((d) => (
-              <li key={d.key} className="flex items-center justify-between px-4 py-3 text-sm">
-                <span className="font-semibold text-parchment">{d.label}</span>
-                <span className="text-muted2">
-                  {d.rooms} partida{d.rooms === 1 ? "" : "s"}, {d.players} jogador
-                  {d.players === 1 ? "" : "es"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-4 text-sm text-muted2">Nenhuma partida nos últimos 10 dias.</p>
-        )}
-      </section>
     </main>
   );
 }
