@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { generateQuestions } from "@/lib/bible";
 import { loadBooks } from "@/lib/versions";
+import { getDeviceId } from "@/lib/storage";
 import { generateRoomCode } from "@/lib/utils";
 import type {
   Player,
@@ -72,7 +73,7 @@ export async function createRoom(params: {
 
   const { data: playerData, error: playerError } = await supabase
     .from("players")
-    .insert({ room_id: room.id, name: params.hostName })
+    .insert({ room_id: room.id, name: params.hostName, device_id: getDeviceId() })
     .select()
     .single();
   if (playerError || !playerData)
@@ -146,7 +147,7 @@ export async function createRematch(
       players.map(async (p) => {
         const { data, error } = await supabase
           .from("players")
-          .insert({ room_id: newRoom!.id, name: p.name })
+          .insert({ room_id: newRoom!.id, name: p.name, device_id: p.device_id ?? null })
           .select()
           .single();
         if (error || !data) throw new Error("player_insert_failed");
@@ -202,7 +203,7 @@ export async function joinRoom(
 
   const { data, error } = await supabase
     .from("players")
-    .insert({ room_id: room.id, name })
+    .insert({ room_id: room.id, name, device_id: getDeviceId() })
     .select()
     .single();
   if (error || !data) throw new Error("Não foi possível entrar na sala.");

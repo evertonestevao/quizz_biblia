@@ -9,7 +9,6 @@ import { TimerBar } from "@/components/game/TimerBar";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
 import { CountdownScreen } from "@/components/game/CountdownScreen";
-import { Button } from "@/components/ui/button";
 import {
   advanceQuestion,
   beginFirstQuestion,
@@ -23,8 +22,13 @@ import {
 import { getSession } from "@/lib/storage";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { rankPlayers } from "@/lib/scoring";
-import type { Player, Room, RoomQuestion, SubmitAnswerResult } from "@/types/room";
-import { ChevronRight, Trophy } from "lucide-react";
+import type {
+  Player,
+  Room,
+  RoomQuestion,
+  SubmitAnswerResult,
+} from "@/types/room";
+import { Trophy } from "lucide-react";
 
 const REVEAL_DELAY_MS = 3000; // tempo mostrando a resposta antes de avançar
 
@@ -50,26 +54,33 @@ export default function MultiplayerGamePage() {
   const advancedForRef = useRef<string | null>(null);
   const countdownBegunRef = useRef<string | null>(null);
 
-  const isHost = room?.host_player_id != null && room.host_player_id === playerIdRef.current;
+  const isHost =
+    room?.host_player_id != null && room.host_player_id === playerIdRef.current;
   const deadlineShortened = Boolean(
     question?.ends_at &&
-      question.started_at &&
-      new Date(question.ends_at).getTime() <
-        new Date(question.started_at).getTime() + question.duration_seconds * 1000 - 500
+    question.started_at &&
+    new Date(question.ends_at).getTime() <
+      new Date(question.started_at).getTime() +
+        question.duration_seconds * 1000 -
+        500,
   );
   const timeOver = secondsLeft <= 0 && question?.status === "active";
-  const revealed = Boolean(result) || timeOver || question?.status === "finished";
+  const revealed =
+    Boolean(result) || timeOver || question?.status === "finished";
   const answered = Boolean(selected);
 
   const serverNow = useCallback(() => Date.now() + offsetRef.current, []);
 
-  const computeEndsAtMs = useCallback((q: RoomQuestion | null): number | null => {
-    if (!q || !q.started_at || q.status !== "active") return null;
-    // Fonte da verdade é ends_at (pode ser encurtado pelo servidor quando
-    // todos respondem). started_at + duração é apenas fallback.
-    if (q.ends_at) return new Date(q.ends_at).getTime();
-    return new Date(q.started_at).getTime() + q.duration_seconds * 1000;
-  }, []);
+  const computeEndsAtMs = useCallback(
+    (q: RoomQuestion | null): number | null => {
+      if (!q || !q.started_at || q.status !== "active") return null;
+      // Fonte da verdade é ends_at (pode ser encurtado pelo servidor quando
+      // todos respondem). started_at + duração é apenas fallback.
+      if (q.ends_at) return new Date(q.ends_at).getTime();
+      return new Date(q.started_at).getTime() + q.duration_seconds * 1000;
+    },
+    [],
+  );
 
   const computeSecondsLeft = useCallback(
     (q: RoomQuestion | null): number => {
@@ -77,11 +88,14 @@ export default function MultiplayerGamePage() {
       if (endsAt === null) return 0;
       return Math.ceil((endsAt - (Date.now() + offsetRef.current)) / 1000);
     },
-    [computeEndsAtMs]
+    [computeEndsAtMs],
   );
 
   const loadCurrentQuestion = useCallback(async (freshRoom: Room) => {
-    const q = await fetchQuestion(freshRoom.id, freshRoom.current_question_index);
+    const q = await fetchQuestion(
+      freshRoom.id,
+      freshRoom.current_question_index,
+    );
     const previous = questionRef.current;
     questionRef.current = q;
     setQuestion(q);
@@ -143,8 +157,13 @@ export default function MultiplayerGamePage() {
       .channel(`game:${current.id}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${current.id}` },
-        () => refresh()
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rooms",
+          filter: `id=eq.${current.id}`,
+        },
+        () => refresh(),
       )
       .on(
         "postgres_changes",
@@ -154,12 +173,17 @@ export default function MultiplayerGamePage() {
           table: "room_questions",
           filter: `room_id=eq.${current.id}`,
         },
-        () => refresh()
+        () => refresh(),
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "players", filter: `room_id=eq.${current.id}` },
-        () => refresh()
+        {
+          event: "*",
+          schema: "public",
+          table: "players",
+          filter: `room_id=eq.${current.id}`,
+        },
+        () => refresh(),
       )
       .subscribe();
 
@@ -185,7 +209,8 @@ export default function MultiplayerGamePage() {
   // Ao zerar, o host ativa a 1ª pergunta (reusa o fluxo normal de start).
   useEffect(() => {
     if (room?.status !== "countdown" || !room.countdown_started_at) return;
-    const endsAt = new Date(room.countdown_started_at).getTime() + COUNTDOWN_SECONDS * 1000;
+    const endsAt =
+      new Date(room.countdown_started_at).getTime() + COUNTDOWN_SECONDS * 1000;
     const tick = () => {
       const left = Math.ceil((endsAt - serverNow()) / 1000);
       setCountdownLeft(Math.max(0, left));
@@ -202,13 +227,21 @@ export default function MultiplayerGamePage() {
   // Host: agenda o avanço automático no fim do prazo. Reexecuta quando
   // ends_at muda (encurtado pelo servidor quando todos respondem).
   useEffect(() => {
-    if (!isHost || !question || question.status !== "active" || !question.started_at) return;
+    if (
+      !isHost ||
+      !question ||
+      question.status !== "active" ||
+      !question.started_at
+    )
+      return;
     if (advancedForRef.current === question.id) return;
 
     const endsAt = computeEndsAtMs(question);
     if (endsAt === null) return;
 
-    const naturalEnd = new Date(question.started_at).getTime() + question.duration_seconds * 1000;
+    const naturalEnd =
+      new Date(question.started_at).getTime() +
+      question.duration_seconds * 1000;
     const wasShortened = endsAt < naturalEnd - 500;
     // Prazo normal: ninguém respondeu tudo -> mostra a resposta por 3s após zerar.
     // Prazo encurtado: os 3s de contagem já são o reveal -> avança logo em seguida.
@@ -296,7 +329,8 @@ export default function MultiplayerGamePage() {
       <div className="mx-auto max-w-2xl space-y-5 px-5">
         <div className="flex items-center justify-between text-sm text-muted2">
           <span>
-            Sala <span className="font-semibold text-gold-300">{room.code}</span>
+            Sala{" "}
+            <span className="font-semibold text-gold-300">{room.code}</span>
           </span>
           <span>
             Pergunta{" "}
@@ -307,7 +341,12 @@ export default function MultiplayerGamePage() {
           </span>
         </div>
 
-        <TimerBar secondsLeft={secondsLeft} totalSeconds={question.duration_seconds} />
+        <div className="sticky top-0 z-20 -mx-5 px-5 py-2 backdrop-blur-md">
+          <TimerBar
+            secondsLeft={secondsLeft}
+            totalSeconds={question.duration_seconds}
+          />
+        </div>
 
         <QuestionCard
           verseText={question.verse_text}
@@ -353,17 +392,11 @@ export default function MultiplayerGamePage() {
         {revealed && (
           <p className="text-center text-sm text-muted2">
             Resposta correta:{" "}
-            <span className="font-semibold text-gold-300">{question.correct_reference}</span>
+            <span className="font-semibold text-gold-300">
+              {question.correct_reference}
+            </span>
             {" · "}Próxima pergunta em instantes...
           </p>
-        )}
-
-        {isHost && revealed && (
-          <div className="text-center">
-            <Button variant="subtle" size="sm" onClick={() => triggerAdvance(question.id)}>
-              Avançar agora <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         )}
 
         <div className="space-y-2">
@@ -372,15 +405,22 @@ export default function MultiplayerGamePage() {
           </h2>
           <ul className="glass divide-y divide-white/5 p-0">
             {ranking.map((player, index) => (
-              <li key={player.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                <span className="w-7 font-display font-bold text-gold-300">{index + 1}º</span>
+              <li
+                key={player.id}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm"
+              >
+                <span className="w-7 font-display font-bold text-gold-300">
+                  {index + 1}º
+                </span>
                 <span className="flex-1 truncate text-parchment">
                   {player.name}
                   {player.id === playerIdRef.current && (
                     <span className="ml-2 text-xs text-gold-400">(você)</span>
                   )}
                 </span>
-                <span className="font-semibold text-parchment">{player.total_score} pts</span>
+                <span className="font-semibold text-parchment">
+                  {player.total_score} pts
+                </span>
               </li>
             ))}
           </ul>

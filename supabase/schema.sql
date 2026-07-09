@@ -66,6 +66,15 @@ create table if not exists public.player_locations (
   created_at timestamptz default now()
 );
 
+-- Sessões de jogo solo (uma linha por partida solo iniciada online), para
+-- métricas de audiência de dispositivos únicos. Sem FK: solo não tem sala.
+create table if not exists public.solo_sessions (
+  id uuid primary key default gen_random_uuid(),
+  device_id text,
+  bible_version text,
+  created_at timestamptz not null default now()
+);
+
 -- Cache de coordenadas por cidade (geocodificado uma vez via Nominatim/OSM).
 create table if not exists public.city_coordinates (
   id uuid primary key default gen_random_uuid(),
@@ -97,16 +106,25 @@ alter table public.rooms
   add constraint rooms_status_check
   check (status in ('lobby', 'countdown', 'playing', 'finished'));
 
+-- Identificador persistente de dispositivo (localStorage no cliente), para
+-- métricas de audiência (dispositivos únicos) sem exigir login. Nullable para
+-- não quebrar registros de jogadores criados antes desta coluna existir.
+alter table public.players
+  add column if not exists device_id text;
+
 -- ---------------------------------------------------------------------
 -- Índices
 -- ---------------------------------------------------------------------
 
 create index if not exists idx_rooms_code on public.rooms (code);
 create index if not exists idx_players_room on public.players (room_id);
+create index if not exists idx_players_device on public.players (device_id);
 create index if not exists idx_questions_room on public.room_questions (room_id, question_index);
 create index if not exists idx_answers_question on public.answers (question_id, answered_at);
 create index if not exists idx_answers_room on public.answers (room_id);
 create index if not exists idx_player_locations_room on public.player_locations (room_id);
+create index if not exists idx_solo_sessions_device on public.solo_sessions (device_id);
+create index if not exists idx_solo_sessions_created on public.solo_sessions (created_at);
 
 -- ---------------------------------------------------------------------
 -- RLS (políticas públicas simples enquanto não há login)
@@ -149,6 +167,12 @@ drop policy if exists "public read player_locations" on public.player_locations;
 drop policy if exists "public write player_locations" on public.player_locations;
 create policy "public read player_locations" on public.player_locations for select using (true);
 create policy "public write player_locations" on public.player_locations for insert with check (true);
+
+alter table public.solo_sessions enable row level security;
+drop policy if exists "public read solo_sessions" on public.solo_sessions;
+drop policy if exists "public write solo_sessions" on public.solo_sessions;
+create policy "public read solo_sessions" on public.solo_sessions for select using (true);
+create policy "public write solo_sessions" on public.solo_sessions for insert with check (true);
 
 alter table public.city_coordinates enable row level security;
 drop policy if exists "public read city_coordinates" on public.city_coordinates;

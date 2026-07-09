@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/game/LoadingState";
 import { Button } from "@/components/ui/button";
 import { generateQuestion } from "@/lib/bible";
 import { applySoloAnswer, INITIAL_SOLO_STATS } from "@/lib/game";
+import { trackSoloSession } from "@/lib/analytics";
 import { getSoloName, getSoloVersion } from "@/lib/storage";
 import { getVersion, loadBooks } from "@/lib/versions";
 import { formatAccuracy } from "@/lib/utils";
@@ -29,6 +30,7 @@ export default function SoloGamePage() {
     setPlayerName(getSoloName() || "Jogador");
     const versionId = getSoloVersion();
     setVersionLabel(getVersion(versionId).label.split(" — ")[0]);
+    trackSoloSession(versionId);
     loadBooks(versionId).then((loaded) => {
       setBooks(loaded);
       setQuestion(generateQuestion(loaded));

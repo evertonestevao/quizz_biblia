@@ -21,6 +21,8 @@ export interface Player {
   total_score: number;
   correct_answers: number;
   joined_at: string;
+  /** Identificador persistente do dispositivo (localStorage). Null em registros antigos. */
+  device_id: string | null;
 }
 
 export interface RoomQuestion {
