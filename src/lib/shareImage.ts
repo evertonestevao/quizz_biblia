@@ -5,7 +5,6 @@ export interface ResultImageData {
   score: number;
   correct: number;
   answered: number;
-  wrong: number;
   pct: number;
   message: string;
   versionLabel: string;
@@ -190,11 +189,10 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
   ctx.stroke();
 
   const cols = [
-    { label: "PERGUNTAS", value: data.answered },
     { label: "ACERTOS", value: data.correct },
-    { label: "ERROS", value: data.wrong },
+    { label: "PERGUNTAS", value: data.answered },
   ];
-  const colW = boxW / 3;
+  const colW = boxW / cols.length;
   cols.forEach((c, i) => {
     const colCx = boxX + colW * i + colW / 2;
     if (i > 0) {
@@ -240,4 +238,39 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
       "image/png",
     );
   });
+}
+
+/**
+ * Gera e compartilha a imagem do resultado. No mobile usa a Web Share API com o
+ * arquivo (menu nativo); sem suporte (desktop), baixa a imagem. Cancelamento do
+ * share nativo é ignorado. Lança se a geração da imagem falhar.
+ */
+export async function shareResultImage(data: ResultImageData): Promise<void> {
+  const blob = await generateResultImage(data);
+  const file = new File([blob], "cristao-quiz-resultado.png", { type: "image/png" });
+  const text = `Joguei Cristão Quiz e fiz ${data.score} pontos! Consegue superar? ${SITE_URL}`;
+
+  const canShareFile =
+    typeof navigator !== "undefined" &&
+    typeof navigator.canShare === "function" &&
+    navigator.canShare({ files: [file] });
+
+  if (canShareFile && typeof navigator.share === "function") {
+    try {
+      await navigator.share({ files: [file], title: "Meu resultado no Cristão Quiz", text });
+    } catch {
+      // Cancelou ou falhou: ignora.
+    }
+    return;
+  }
+
+  // Fallback (desktop / sem suporte a compartilhar arquivo): baixa a imagem.
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

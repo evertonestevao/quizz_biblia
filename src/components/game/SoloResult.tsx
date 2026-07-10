@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
 import { SOLO_POINTS_PER_CORRECT } from "@/lib/game";
-import { generateResultImage, SITE_URL } from "@/lib/shareImage";
+import { shareResultImage } from "@/lib/shareImage";
 import type { SoloStats } from "@/types/game";
 import {
   BookOpenText,
@@ -49,15 +49,13 @@ export function SoloResult({
   const [imgBusy, setImgBusy] = useState(false);
 
   const { answered, correct } = stats;
-  const wrong = answered - correct;
   const pct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
   const score = correct * SOLO_POINTS_PER_CORRECT;
   const message = performanceLabel(pct, answered);
 
   const boardStats = [
-    { label: "Perguntas", value: answered },
     { label: "Acertos", value: correct },
-    { label: "Erros", value: wrong },
+    { label: "Perguntas", value: answered },
   ];
 
   async function handleShare() {
@@ -95,42 +93,16 @@ export function SoloResult({
     if (imgBusy) return;
     setImgBusy(true);
     try {
-      const blob = await generateResultImage({
+      await shareResultImage({
         modeLabel: "Solo",
         playerName,
         score,
         correct,
         answered,
-        wrong,
         pct,
         message,
         versionLabel,
       });
-      const file = new File([blob], "cristao-quiz-resultado.png", { type: "image/png" });
-      const text = `Joguei Cristão Quiz e fiz ${score} pontos! Consegue superar? ${SITE_URL}`;
-
-      const canShareFile =
-        typeof navigator !== "undefined" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] });
-
-      if (canShareFile && typeof navigator.share === "function") {
-        try {
-          await navigator.share({ files: [file], title: "Meu resultado no Cristão Quiz", text });
-        } catch {
-          // Cancelou ou falhou: ignora.
-        }
-      } else {
-        // Fallback (desktop / sem suporte a compartilhar arquivo): baixa a imagem.
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }
     } catch {
       // Se a geração da imagem falhar, cai no compartilhamento em texto.
       await handleShare();

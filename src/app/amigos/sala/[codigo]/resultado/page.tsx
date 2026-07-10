@@ -15,8 +15,18 @@ import type { RematchBroadcast } from "@/lib/room";
 import { getSession, saveSession } from "@/lib/storage";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { rankPlayers } from "@/lib/scoring";
+import { getVersion } from "@/lib/versions";
+import { shareResultImage } from "@/lib/shareImage";
 import type { Player, Room } from "@/types/room";
-import { Home, RotateCcw } from "lucide-react";
+import { Home, ImageDown, RotateCcw } from "lucide-react";
+
+/** Mensagem de colocação para o card compartilhável (destaque no pódio). */
+function placementMessage(rank: number, total: number): string {
+  if (rank === 1) return "🥇 Campeão!";
+  if (rank === 2) return "🥈 2º lugar!";
+  if (rank === 3) return "🥉 3º lugar!";
+  return `${rank}º lugar de ${total}`;
+}
 
 export default function ResultadoPage() {
   const params = useParams<{ codigo: string }>();
@@ -28,6 +38,7 @@ export default function ResultadoPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
   const [playerId, setPlayerId] = useState<string | undefined>();
   const [creating, setCreating] = useState(false);
+  const [imgBusy, setImgBusy] = useState(false);
   const [error, setError] = useState("");
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -84,6 +95,32 @@ export default function ResultadoPage() {
 
   const ranking = useMemo(() => rankPlayers(players), [players]);
   const isHost = room?.host_player_id != null && room.host_player_id === playerId;
+
+  const meIndex = ranking.findIndex((p) => p.id === playerId);
+  const me = meIndex >= 0 ? ranking[meIndex] : null;
+
+  async function handleShareImage() {
+    if (!me || !room || imgBusy) return;
+    setImgBusy(true);
+    try {
+      const answered = room.question_count;
+      const correct = me.correct_answers;
+      await shareResultImage({
+        modeLabel: "Em grupo",
+        playerName: me.name,
+        score: me.total_score,
+        correct,
+        answered,
+        pct: answered > 0 ? Math.round((correct / answered) * 100) : 0,
+        message: placementMessage(meIndex + 1, ranking.length),
+        versionLabel: getVersion(room.bible_version).label.split(" — ")[0],
+      });
+    } catch {
+      // Falha ao gerar/compartilhar: ignora silenciosamente.
+    } finally {
+      setImgBusy(false);
+    }
+  }
 
   async function handlePlayAgain() {
     if (!room || !isHost || !playerId) return;
@@ -155,22 +192,31 @@ export default function ResultadoPage() {
 
         {error && <p className="text-center text-sm text-red-300">{error}</p>}
 
-        <div className="flex flex-wrap justify-center gap-3">
-          {isHost ? (
-            <Button size="lg" onClick={handlePlayAgain} disabled={creating}>
-              <RotateCcw className="h-4 w-4" />
-              {creating ? "Criando nova sala..." : "Jogar novamente"}
+        <div className="space-y-3">
+          {me && (
+            <Button size="lg" className="w-full" onClick={handleShareImage} disabled={imgBusy}>
+              <ImageDown className="h-4 w-4" />
+              {imgBusy ? "Gerando imagem…" : "Compartilhar imagem"}
             </Button>
-          ) : (
-            <p className="w-full text-center text-sm text-muted2">
-              Aguardando o anfitrião iniciar uma nova sala...
-            </p>
           )}
-          <Link href="/">
-            <Button variant="subtle" size="lg">
-              <Home className="h-4 w-4" /> Voltar ao início
-            </Button>
-          </Link>
+
+          <div className="flex flex-wrap justify-center gap-3">
+            {isHost ? (
+              <Button variant="subtle" size="lg" onClick={handlePlayAgain} disabled={creating}>
+                <RotateCcw className="h-4 w-4" />
+                {creating ? "Criando nova sala..." : "Jogar novamente"}
+              </Button>
+            ) : (
+              <p className="w-full text-center text-sm text-muted2">
+                Aguardando o anfitrião iniciar uma nova sala...
+              </p>
+            )}
+            <Link href="/">
+              <Button variant="ghost" size="lg">
+                <Home className="h-4 w-4" /> Voltar ao início
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </main>
