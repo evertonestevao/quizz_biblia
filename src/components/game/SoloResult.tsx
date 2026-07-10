@@ -187,8 +187,14 @@ export function SoloResult({
         <div className="space-y-3">
           <Button size="lg" className="w-full" onClick={handleShareImage} disabled={imgBusy}>
             <ImageDown className="h-4 w-4" />
-            {imgBusy ? "Gerando imagem…" : "Compartilhar imagem"}
+            {imgBusy ? "Gerando imagem…" : "Compartilhar"}
           </Button>
+
+          <p className="text-center text-xs text-muted2">
+            📸 Postou? Marque{" "}
+            <span className="font-semibold text-gold-300">@cristao.quiz</span> na sua publicação
+            que a gente repassa! 💛
+          </p>
 
           <div className="flex flex-wrap justify-center gap-3">
             <Button variant="subtle" onClick={handleShare}>
