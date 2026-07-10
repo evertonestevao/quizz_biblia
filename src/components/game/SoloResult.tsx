@@ -5,11 +5,13 @@ import Link from "next/link";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
 import { SOLO_POINTS_PER_CORRECT } from "@/lib/game";
+import { generateResultImage, SITE_URL } from "@/lib/shareImage";
 import type { SoloStats } from "@/types/game";
 import {
   BookOpenText,
   Check,
   Home,
+  ImageDown,
   RotateCcw,
   Share2,
   Trophy,
@@ -44,11 +46,13 @@ export function SoloResult({
   onRestart,
 }: SoloResultProps) {
   const [copied, setCopied] = useState(false);
+  const [imgBusy, setImgBusy] = useState(false);
 
   const { answered, correct } = stats;
   const wrong = answered - correct;
   const pct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
   const score = correct * SOLO_POINTS_PER_CORRECT;
+  const message = performanceLabel(pct, answered);
 
   const boardStats = [
     { label: "Perguntas", value: answered },
@@ -84,6 +88,53 @@ export function SoloResult({
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard indisponível: ignora silenciosamente
+    }
+  }
+
+  async function handleShareImage() {
+    if (imgBusy) return;
+    setImgBusy(true);
+    try {
+      const blob = await generateResultImage({
+        playerName,
+        score,
+        correct,
+        answered,
+        wrong,
+        pct,
+        message,
+        versionLabel,
+      });
+      const file = new File([blob], "cristao-quiz-resultado.png", { type: "image/png" });
+      const text = `Joguei Cristão Quiz e fiz ${score} pontos! Consegue superar? ${SITE_URL}`;
+
+      const canShareFile =
+        typeof navigator !== "undefined" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] });
+
+      if (canShareFile && typeof navigator.share === "function") {
+        try {
+          await navigator.share({ files: [file], title: "Meu resultado no Cristão Quiz", text });
+        } catch {
+          // Cancelou ou falhou: ignora.
+        }
+      } else {
+        // Fallback (desktop / sem suporte a compartilhar arquivo): baixa a imagem.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      // Se a geração da imagem falhar, cai no compartilhamento em texto.
+      await handleShare();
+    } finally {
+      setImgBusy(false);
     }
   }
 
@@ -126,7 +177,7 @@ export function SoloResult({
             </p>
 
             <p className="mt-4 font-display text-xl font-semibold text-parchment">
-              {performanceLabel(pct, answered)}
+              {message}
             </p>
 
             <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
@@ -159,23 +210,26 @@ export function SoloResult({
         </div>
 
         {/* Ações (ficam fora do card do print) */}
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button size="lg" onClick={handleShare}>
-            {copied ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <Share2 className="h-4 w-4" />
-            )}
-            {copied ? "Resumo copiado!" : "Compartilhar resultado"}
+        <div className="space-y-3">
+          <Button size="lg" className="w-full" onClick={handleShareImage} disabled={imgBusy}>
+            <ImageDown className="h-4 w-4" />
+            {imgBusy ? "Gerando imagem…" : "Compartilhar imagem (Instagram)"}
           </Button>
-          <Button variant="subtle" size="lg" onClick={onRestart}>
-            <RotateCcw className="h-4 w-4" /> Jogar novamente
-          </Button>
-          <Link href="/">
-            <Button variant="ghost" size="lg">
-              <Home className="h-4 w-4" /> Início
+
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button variant="subtle" onClick={handleShare}>
+              {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+              {copied ? "Resumo copiado!" : "Compartilhar em texto"}
             </Button>
-          </Link>
+            <Button variant="subtle" onClick={onRestart}>
+              <RotateCcw className="h-4 w-4" /> Jogar novamente
+            </Button>
+            <Link href="/">
+              <Button variant="ghost">
+                <Home className="h-4 w-4" /> Início
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </main>
