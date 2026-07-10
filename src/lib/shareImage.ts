@@ -1,6 +1,8 @@
 export interface ResultImageData {
   /** Rótulo do modo exibido no selo, ex.: "Solo" ou "Em grupo". */
   modeLabel: string;
+  /** Nº de pessoas na sala (só no modo em grupo). Omitido no solo. */
+  playersCount?: number;
   playerName: string;
   score: number;
   correct: number;
@@ -113,10 +115,13 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
   ctx.fillText("CRISTÃO QUIZ", cx, 128);
   setSpacing(ctx, "0px");
 
-  // Selo do modo (+ versão bíblica)
-  const modeText = data.versionLabel
-    ? `MODO ${data.modeLabel.toUpperCase()} · ${data.versionLabel.toUpperCase()}`
-    : `MODO ${data.modeLabel.toUpperCase()}`;
+  // Selo do modo (+ nº de pessoas, no grupo, + versão bíblica)
+  const modeParts = [`MODO ${data.modeLabel.toUpperCase()}`];
+  if (data.playersCount && data.playersCount > 0) {
+    modeParts.push(`${data.playersCount} ${data.playersCount === 1 ? "PESSOA" : "PESSOAS"}`);
+  }
+  if (data.versionLabel) modeParts.push(data.versionLabel.toUpperCase());
+  const modeText = modeParts.join(" · ");
   setSpacing(ctx, "4px");
   ctx.font = "600 24px Inter, sans-serif";
   const pillW = ctx.measureText(modeText).width + 56;

@@ -107,6 +107,7 @@ export default function ResultadoPage() {
       const correct = me.correct_answers;
       await shareResultImage({
         modeLabel: "Em grupo",
+        playersCount: ranking.length,
         playerName: me.name,
         score: me.total_score,
         correct,
