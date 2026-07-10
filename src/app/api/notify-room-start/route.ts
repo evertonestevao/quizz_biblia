@@ -50,21 +50,6 @@ export async function POST(request: NextRequest) {
       .order("joined_at", { ascending: true });
     const players = (playersData as { name: string }[]) ?? [];
 
-    // Jogadores em todas as salas ativas (não finalizadas) — inclui a sala atual.
-    let activePlayers = 0;
-    const { data: activeRooms } = await supabase
-      .from("rooms")
-      .select("id")
-      .neq("status", "finished");
-    const activeIds = ((activeRooms as { id: string }[]) ?? []).map((r) => r.id);
-    if (activeIds.length) {
-      const { count } = await supabase
-        .from("players")
-        .select("id", { count: "exact", head: true })
-        .in("room_id", activeIds);
-      activePlayers = count ?? 0;
-    }
-
     // Conexões Realtime ativas agora (presence global: salas + solo online).
     const realtime = await countPlayingPresence();
 
@@ -77,8 +62,7 @@ export async function POST(request: NextRequest) {
       `🕐 Criada em: ${formatSaoPaulo(room.created_at)}\n` +
       `👥 Integrantes (${players.length}):\n${names}\n` +
       `--------------------------------\n` +
-      `🌐 Jogadores em salas ativas: ${activePlayers}\n` +
-      `📡 Conexões Realtime (salas + solo): ${realtime ?? "n/d"}`;
+      `📡 Jogando agora (salas + solo): ${realtime ?? "n/d"}`;
 
     await sendTelegramMessage(message);
 
