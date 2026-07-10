@@ -36,7 +36,9 @@ export default function ResultadoPage() {
 
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "not_found">(
+    "loading",
+  );
   const [playerId, setPlayerId] = useState<string | undefined>();
   const [creating, setCreating] = useState(false);
   const [imgBusy, setImgBusy] = useState(false);
@@ -74,7 +76,9 @@ export default function ResultadoPage() {
       .on("broadcast", { event: "new_room" }, ({ payload }) => {
         const data = payload as RematchBroadcast;
         const session = getSession();
-        const newPlayerId = session ? data.mapping[session.playerId] : undefined;
+        const newPlayerId = session
+          ? data.mapping[session.playerId]
+          : undefined;
         if (session && newPlayerId) {
           saveSession({
             playerId: newPlayerId,
@@ -95,7 +99,8 @@ export default function ResultadoPage() {
   }, [room?.id, router]);
 
   const ranking = useMemo(() => rankPlayers(players), [players]);
-  const isHost = room?.host_player_id != null && room.host_player_id === playerId;
+  const isHost =
+    room?.host_player_id != null && room.host_player_id === playerId;
 
   const meIndex = ranking.findIndex((p) => p.id === playerId);
   const me = meIndex >= 0 ? ranking[meIndex] : null;
@@ -129,11 +134,18 @@ export default function ResultadoPage() {
     setCreating(true);
     setError("");
     try {
-      const { newRoom, mapping, hostNewPlayerId } = await createRematch(room, players, playerId);
+      const { newRoom, mapping, hostNewPlayerId } = await createRematch(
+        room,
+        players,
+        playerId,
+      );
       const session = getSession();
       saveSession({
         playerId: hostNewPlayerId,
-        playerName: session?.playerName ?? players.find((p) => p.id === playerId)?.name ?? "",
+        playerName:
+          session?.playerName ??
+          players.find((p) => p.id === playerId)?.name ??
+          "",
         roomCode: newRoom.code,
         roomId: newRoom.id,
       });
@@ -141,11 +153,17 @@ export default function ResultadoPage() {
       await channelRef.current?.send({
         type: "broadcast",
         event: "new_room",
-        payload: { roomId: newRoom.id, code: newRoom.code, mapping } as RematchBroadcast,
+        payload: {
+          roomId: newRoom.id,
+          code: newRoom.code,
+          mapping,
+        } as RematchBroadcast,
       });
       router.push(`/amigos/sala/${newRoom.code}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar a nova sala.");
+      setError(
+        err instanceof Error ? err.message : "Erro ao criar a nova sala.",
+      );
       setCreating(false);
     }
   }
@@ -196,7 +214,12 @@ export default function ResultadoPage() {
 
         <div className="space-y-3">
           {me && (
-            <Button size="lg" className="w-full" onClick={handleShareImage} disabled={imgBusy}>
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleShareImage}
+              disabled={imgBusy}
+            >
               <ImageDown className="h-4 w-4" />
               {imgBusy ? "Gerando imagem…" : "Compartilhar"}
             </Button>
@@ -205,14 +228,19 @@ export default function ResultadoPage() {
           {me && (
             <p className="text-center text-xs text-muted2">
               📸 Postou? Marque{" "}
-              <span className="font-semibold text-gold-300">@cristao.quiz</span> na sua publicação
-              que a gente repassa! 💛
+              <span className="font-semibold text-gold-300">@cristao.quiz</span>{" "}
+              na sua publicação! 💛
             </p>
           )}
 
           <div className="flex flex-wrap justify-center gap-3">
             {isHost ? (
-              <Button variant="subtle" size="lg" onClick={handlePlayAgain} disabled={creating}>
+              <Button
+                variant="subtle"
+                size="lg"
+                onClick={handlePlayAgain}
+                disabled={creating}
+              >
                 <RotateCcw className="h-4 w-4" />
                 {creating ? "Criando nova sala..." : "Jogar novamente"}
               </Button>

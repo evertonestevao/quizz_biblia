@@ -159,7 +159,7 @@ export function SoloResult({
             </span>
 
             {/* Números da partida */}
-            <div className="mt-7 grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03] py-4">
+            <div className="mt-7 grid grid-cols-2 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.03] py-4">
               {boardStats.map((stat) => (
                 <div key={stat.label} className="px-2">
                   <p className="font-display text-2xl font-bold text-parchment">
@@ -185,20 +185,29 @@ export function SoloResult({
 
         {/* Ações (ficam fora do card do print) */}
         <div className="space-y-3">
-          <Button size="lg" className="w-full" onClick={handleShareImage} disabled={imgBusy}>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={handleShareImage}
+            disabled={imgBusy}
+          >
             <ImageDown className="h-4 w-4" />
             {imgBusy ? "Gerando imagem…" : "Compartilhar"}
           </Button>
 
           <p className="text-center text-xs text-muted2">
             📸 Postou? Marque{" "}
-            <span className="font-semibold text-gold-300">@cristao.quiz</span> na sua publicação
-            que a gente repassa! 💛
+            <span className="font-semibold text-gold-300">@cristao.quiz</span>{" "}
+            na sua publicação! 💛
           </p>
 
           <div className="flex flex-wrap justify-center gap-3">
             <Button variant="subtle" onClick={handleShare}>
-              {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+              {copied ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Share2 className="h-4 w-4" />
+              )}
               {copied ? "Resumo copiado!" : "Compartilhar em texto"}
             </Button>
             <Button variant="subtle" onClick={onRestart}>
