@@ -60,6 +60,7 @@ create table if not exists public.answers (
 create table if not exists public.player_locations (
   id uuid primary key default gen_random_uuid(),
   room_id uuid references public.rooms(id) on delete cascade,
+  player_id uuid references public.players(id) on delete cascade,
   source text not null default 'room', -- 'room' (entrou numa sala) ou 'solo'
   city text,
   state text,
@@ -118,6 +119,11 @@ alter table public.players
 alter table public.player_locations
   add column if not exists source text not null default 'room';
 
+-- Vincula a localização ao jogador (para mostrar o local ao lado do nome).
+-- Nullable: registros antigos (e solo) ficam sem player_id.
+alter table public.player_locations
+  add column if not exists player_id uuid references public.players(id) on delete cascade;
+
 -- ---------------------------------------------------------------------
 -- Índices
 -- ---------------------------------------------------------------------
@@ -129,6 +135,7 @@ create index if not exists idx_questions_room on public.room_questions (room_id,
 create index if not exists idx_answers_question on public.answers (question_id, answered_at);
 create index if not exists idx_answers_room on public.answers (room_id);
 create index if not exists idx_player_locations_room on public.player_locations (room_id);
+create index if not exists idx_player_locations_player on public.player_locations (player_id);
 create index if not exists idx_solo_sessions_device on public.solo_sessions (device_id);
 create index if not exists idx_solo_sessions_created on public.solo_sessions (created_at);
 

@@ -45,16 +45,39 @@ export async function POST(request: NextRequest) {
 
     const { data: playersData } = await supabase
       .from("players")
-      .select("name, joined_at")
+      .select("id, name, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
-    const players = (playersData as { name: string }[]) ?? [];
+    const players = (playersData as { id: string; name: string }[]) ?? [];
+
+    // Localização aproximada (geo-IP) salva por jogador, para mostrar ao lado do nome.
+    const { data: locData } = await supabase
+      .from("player_locations")
+      .select("player_id, city, state, country")
+      .eq("room_id", room.id)
+      .not("player_id", "is", null);
+    const locByPlayer = new Map<string, string>();
+    for (const l of (locData as {
+      player_id: string | null;
+      city: string | null;
+      state: string | null;
+      country: string | null;
+    }[]) ?? []) {
+      if (!l.player_id || locByPlayer.has(l.player_id)) continue;
+      const label = l.city || l.state || l.country;
+      if (label) locByPlayer.set(l.player_id, label);
+    }
 
     // Conexões Realtime ativas agora (presence global: salas + solo online).
     const realtime = await countPlayingPresence();
 
     const names = players.length
-      ? players.map((p) => `• ${p.name}`).join("\n")
+      ? players
+          .map((p) => {
+            const loc = locByPlayer.get(p.id);
+            return loc ? `• 📍 ${loc} — ${p.name}` : `• ${p.name}`;
+          })
+          .join("\n")
       : "• (sem jogadores)";
 
     const message =

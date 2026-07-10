@@ -154,7 +154,7 @@ export default function RoomLobbyPage() {
     setError("");
     try {
       const { room: joinedRoom, player } = await joinRoom(code, name);
-      trackPlayerLocation(joinedRoom.id);
+      trackPlayerLocation(joinedRoom.id, player.id);
       saveSession({
         playerId: player.id,
         playerName: player.name,

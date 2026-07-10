@@ -61,8 +61,9 @@ interface GeoResult {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { roomId, source } = (await request.json()) as {
+    const { roomId, playerId, source } = (await request.json()) as {
       roomId?: string;
+      playerId?: string;
       source?: "room" | "solo";
     };
     // Solo não tem sala (room_id fica null). Sala exige roomId.
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
 
     await supabase.from("player_locations").insert({
       room_id: isSolo ? null : roomId,
+      player_id: isSolo ? null : playerId ?? null,
       source: isSolo ? "solo" : "room",
       city: geo.city ?? null,
       state: geo.regionName ?? null,

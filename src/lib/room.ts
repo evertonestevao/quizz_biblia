@@ -285,12 +285,12 @@ export async function markRoomAbandoned(roomId: string): Promise<void> {
  * Registra (fire-and-forget) a localização aproximada do jogador via geo-IP no servidor.
  * Não bloqueia nem atrasa o fluxo de entrada; falhas são ignoradas.
  */
-export function trackPlayerLocation(roomId: string): void {
+export function trackPlayerLocation(roomId: string, playerId?: string): void {
   try {
     void fetch("/api/track-location", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId }),
+      body: JSON.stringify({ roomId, playerId }),
       keepalive: true,
     }).catch(() => {});
   } catch {

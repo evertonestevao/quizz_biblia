@@ -47,7 +47,7 @@ export default function CriarSalaPage() {
         questionCount: count,
         bibleVersion: version,
       });
-      trackPlayerLocation(room.id);
+      trackPlayerLocation(room.id, player.id);
       saveSession({
         playerId: player.id,
         playerName: player.name,
