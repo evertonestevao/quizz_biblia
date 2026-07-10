@@ -185,6 +185,14 @@ export default function RoomLobbyPage() {
         countdown_seconds: COUNTDOWN_SECONDS,
       };
       channelRef.current?.send({ type: "broadcast", event: COUNTDOWN_EVENT, payload });
+      // Monitoramento (fire-and-forget): avisa o Telegram que a sala iniciou.
+      // Não bloqueia nem afeta o início da partida se falhar.
+      void fetch("/api/notify-room-start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: room.code }),
+        keepalive: true,
+      }).catch(() => {});
       router.push(`/amigos/sala/${room.code}/jogar`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao iniciar a partida.");
