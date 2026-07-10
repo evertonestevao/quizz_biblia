@@ -47,7 +47,7 @@ export function ShareWhatsAppButton({ roomCode, roomUrl }: ShareWhatsAppButtonPr
       onClick={handleShare}
       className={`${BASE} bg-[#25D366] text-[#0B1026] hover:brightness-110`}
     >
-      <WhatsAppIcon className="h-4 w-4" /> Compartilhar no WhatsApp
+      <WhatsAppIcon className="h-4 w-4" /> Convidar amigos
     </button>
   );
 }
