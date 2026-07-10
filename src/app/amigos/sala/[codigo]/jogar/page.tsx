@@ -20,6 +20,7 @@ import {
   submitAnswer,
 } from "@/lib/room";
 import { getSession } from "@/lib/storage";
+import { usePlayingPresence } from "@/hooks/usePlayingPresence";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { rankPlayers } from "@/lib/scoring";
 import type {
@@ -36,6 +37,8 @@ export default function MultiplayerGamePage() {
   const params = useParams<{ codigo: string }>();
   const code = (params.codigo ?? "").toUpperCase();
   const router = useRouter();
+
+  usePlayingPresence();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);

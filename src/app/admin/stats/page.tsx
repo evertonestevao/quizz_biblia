@@ -16,6 +16,7 @@ import {
   type AudienceReport,
 } from "@/lib/admin";
 import { AudienceTrend } from "@/components/admin/AudienceTrend";
+import { subscribeOnlineCount } from "@/lib/presence";
 import type { MapPoint } from "@/components/admin/LocationsMap";
 
 // Leaflet acessa `window`, então o mapa só pode renderizar no cliente.
@@ -35,6 +36,13 @@ export default function AdminStatsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<AudienceReport | null>(null);
+  const [online, setOnline] = useState<number | null>(null);
+
+  // Presença em tempo real: dispositivos jogando agora.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    return subscribeOnlineCount(setOnline);
+  }, []);
 
   // Carrega a lista de salas e o relatório de audiência uma vez.
   useEffect(() => {
@@ -113,6 +121,22 @@ export default function AdminStatsPage() {
       {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
 
       <section className="mt-6">
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-emerald-400/25 bg-emerald-400/[0.06] p-5">
+          <div>
+            <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-emerald-300">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              </span>
+              Conectados agora
+            </p>
+            <p className="mt-1 text-4xl font-semibold text-parchment">
+              {online === null ? "—" : nf(online)}
+            </p>
+            <p className="mt-1 text-xs text-muted2">dispositivos jogando neste momento (tempo real)</p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl border border-white/[0.14] bg-white/[0.03] p-4">
             <p className="text-xs uppercase tracking-wide text-muted2">Dispositivos únicos</p>

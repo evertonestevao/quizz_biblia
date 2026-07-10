@@ -20,6 +20,7 @@ import {
   type CountdownBroadcast,
 } from "@/lib/room";
 import { getSession, saveSession } from "@/lib/storage";
+import { usePlayingPresence } from "@/hooks/usePlayingPresence";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Player, Room } from "@/types/room";
@@ -30,6 +31,8 @@ export default function RoomLobbyPage() {
   const params = useParams<{ codigo: string }>();
   const code = (params.codigo ?? "").toUpperCase();
   const router = useRouter();
+
+  usePlayingPresence();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);

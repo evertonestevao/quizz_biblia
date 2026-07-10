@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { generateQuestion } from "@/lib/bible";
 import { applySoloAnswer, INITIAL_SOLO_STATS } from "@/lib/game";
 import { trackSoloSession } from "@/lib/analytics";
+import { usePlayingPresence } from "@/hooks/usePlayingPresence";
 import { getSoloName, getSoloVersion } from "@/lib/storage";
 import { getVersion, loadBooks } from "@/lib/versions";
 import { formatAccuracy } from "@/lib/utils";
@@ -25,6 +26,8 @@ export default function SoloGamePage() {
   const [stats, setStats] = useState<SoloStats>(INITIAL_SOLO_STATS);
   const [selected, setSelected] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("");
+
+  usePlayingPresence();
 
   useEffect(() => {
     setPlayerName(getSoloName() || "Jogador");
