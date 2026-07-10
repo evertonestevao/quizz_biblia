@@ -96,6 +96,7 @@ export function SoloResult({
     setImgBusy(true);
     try {
       const blob = await generateResultImage({
+        modeLabel: "Solo",
         playerName,
         score,
         correct,
@@ -213,7 +214,7 @@ export function SoloResult({
         <div className="space-y-3">
           <Button size="lg" className="w-full" onClick={handleShareImage} disabled={imgBusy}>
             <ImageDown className="h-4 w-4" />
-            {imgBusy ? "Gerando imagem…" : "Compartilhar imagem (Instagram)"}
+            {imgBusy ? "Gerando imagem…" : "Compartilhar imagem"}
           </Button>
 
           <div className="flex flex-wrap justify-center gap-3">

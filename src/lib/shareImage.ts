@@ -1,4 +1,6 @@
 export interface ResultImageData {
+  /** Rótulo do modo exibido no selo, ex.: "Solo" ou "Em grupo". */
+  modeLabel: string;
   playerName: string;
   score: number;
   correct: number;
@@ -47,20 +49,20 @@ function fitFont(
 ) {
   let size = startPx;
   ctx.font = `${weight} ${size}px ${family}`;
-  while (size > 20 && ctx.measureText(text).width > maxWidth) {
+  while (size > 18 && ctx.measureText(text).width > maxWidth) {
     size -= 2;
     ctx.font = `${weight} ${size}px ${family}`;
   }
 }
 
 /**
- * Gera a imagem do resultado no formato ideal para o feed do Instagram
- * (1080×1350, proporção 4:5), com a marca no topo e o site no rodapé. Desenhada
- * em canvas para reproduzir fielmente o dourado e os brilhos do card.
+ * Gera a imagem do resultado no formato quadrado (1080×1080), ideal para o feed
+ * do Instagram, com a marca e o selo do modo no topo e o site no rodapé.
+ * Desenhada em canvas para reproduzir fielmente o dourado e os brilhos do card.
  */
 export async function generateResultImage(data: ResultImageData): Promise<Blob> {
   const W = 1080;
-  const H = 1350;
+  const H = 1080;
   const cx = W / 2;
 
   const canvas = document.createElement("canvas");
@@ -84,7 +86,7 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  const glow = ctx.createRadialGradient(cx, 300, 0, cx, 300, 480);
+  const glow = ctx.createRadialGradient(cx, 260, 0, cx, 260, 460);
   glow.addColorStop(0, "rgba(212,169,78,0.22)");
   glow.addColorStop(1, "rgba(212,169,78,0)");
   ctx.fillStyle = glow;
@@ -99,7 +101,7 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
   // Moldura
   ctx.strokeStyle = "rgba(212,169,78,0.30)";
   ctx.lineWidth = 2;
-  roundRect(ctx, 40, 40, W - 80, H - 80, 40);
+  roundRect(ctx, 36, 36, W - 72, H - 72, 40);
   ctx.stroke();
 
   ctx.textAlign = "center";
@@ -108,59 +110,78 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
   // Marca
   ctx.fillStyle = "#F0C75E";
   setSpacing(ctx, "12px");
-  ctx.font = "600 42px Cinzel, serif";
-  ctx.fillText("CRISTÃO QUIZ", cx, 168);
+  ctx.font = "600 40px Cinzel, serif";
+  ctx.fillText("CRISTÃO QUIZ", cx, 128);
+  setSpacing(ctx, "0px");
+
+  // Selo do modo (+ versão bíblica)
+  const modeText = data.versionLabel
+    ? `MODO ${data.modeLabel.toUpperCase()} · ${data.versionLabel.toUpperCase()}`
+    : `MODO ${data.modeLabel.toUpperCase()}`;
+  setSpacing(ctx, "4px");
+  ctx.font = "600 24px Inter, sans-serif";
+  const pillW = ctx.measureText(modeText).width + 56;
+  const pillY = 152;
+  const pillH = 46;
+  ctx.fillStyle = "rgba(212,169,78,0.10)";
+  ctx.strokeStyle = "rgba(212,169,78,0.40)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, cx - pillW / 2, pillY, pillW, pillH, 23);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#F0C75E";
+  ctx.fillText(modeText, cx, pillY + 31);
   setSpacing(ctx, "0px");
 
   // Saudação
   ctx.fillStyle = "#9B96B0";
-  fitFont(ctx, `Parabéns, ${data.playerName}! 🎉`, "500", "Inter, sans-serif", 36, 860);
+  fitFont(ctx, `Parabéns, ${data.playerName}! 🎉`, "500", "Inter, sans-serif", 34, 860);
   ctx.fillText(`Parabéns, ${data.playerName}! 🎉`, cx, 258);
 
   // Troféu
-  ctx.font = "120px serif";
-  ctx.fillText("🏆", cx, 440);
+  ctx.font = "88px serif";
+  ctx.fillText("🏆", cx, 360);
 
   // Pontuação (dourado em gradiente)
-  ctx.font = "700 172px Cinzel, serif";
-  const goldGrad = ctx.createLinearGradient(cx - 220, 0, cx + 220, 0);
+  ctx.font = "700 144px Cinzel, serif";
+  const goldGrad = ctx.createLinearGradient(cx - 200, 0, cx + 200, 0);
   goldGrad.addColorStop(0, "#B98C33");
   goldGrad.addColorStop(0.5, "#F0C75E");
   goldGrad.addColorStop(1, "#F7E3A1");
   ctx.fillStyle = goldGrad;
-  ctx.fillText(String(data.score), cx, 630);
+  ctx.fillText(String(data.score), cx, 496);
 
   ctx.fillStyle = "#9B96B0";
   setSpacing(ctx, "10px");
-  ctx.font = "600 30px Inter, sans-serif";
-  ctx.fillText("PONTOS", cx, 685);
+  ctx.font = "600 28px Inter, sans-serif";
+  ctx.fillText("PONTOS", cx, 540);
   setSpacing(ctx, "0px");
 
   // Mensagem de desempenho
   ctx.fillStyle = "#F5F1E8";
-  fitFont(ctx, data.message, "700", "Cinzel, serif", 54, 900);
-  ctx.fillText(data.message, cx, 775);
+  fitFont(ctx, data.message, "700", "Cinzel, serif", 46, 900);
+  ctx.fillText(data.message, cx, 612);
 
   // Selo de aproveitamento
   const badge = `${data.pct}% de aproveitamento`;
   ctx.font = "600 30px Inter, sans-serif";
   const bw = ctx.measureText(badge).width + 64;
-  const by = 812;
-  const bh = 62;
+  const by = 644;
+  const bh = 56;
   ctx.fillStyle = "rgba(52,211,153,0.12)";
   ctx.strokeStyle = "rgba(52,211,153,0.35)";
   ctx.lineWidth = 2;
-  roundRect(ctx, cx - bw / 2, by, bw, bh, 31);
+  roundRect(ctx, cx - bw / 2, by, bw, bh, 28);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#34D399";
-  ctx.fillText(badge, cx, by + 41);
+  ctx.fillText(badge, cx, by + 38);
 
   // Números da partida
-  const boxX = 130;
-  const boxY = 940;
-  const boxW = W - 260;
-  const boxH = 180;
+  const boxX = 140;
+  const boxY = 742;
+  const boxW = W - 280;
+  const boxH = 160;
   ctx.fillStyle = "rgba(255,255,255,0.03)";
   ctx.strokeStyle = "rgba(255,255,255,0.10)";
   ctx.lineWidth = 2;
@@ -180,38 +201,37 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
       ctx.strokeStyle = "rgba(255,255,255,0.10)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(boxX + colW * i, boxY + 32);
-      ctx.lineTo(boxX + colW * i, boxY + boxH - 32);
+      ctx.moveTo(boxX + colW * i, boxY + 30);
+      ctx.lineTo(boxX + colW * i, boxY + boxH - 30);
       ctx.stroke();
     }
     ctx.fillStyle = "#F5F1E8";
-    ctx.font = "700 66px Cinzel, serif";
-    ctx.fillText(String(c.value), colCx, boxY + 96);
+    ctx.font = "700 60px Cinzel, serif";
+    ctx.fillText(String(c.value), colCx, boxY + 84);
     ctx.fillStyle = "#9B96B0";
     setSpacing(ctx, "3px");
-    ctx.font = "600 24px Inter, sans-serif";
-    ctx.fillText(c.label, colCx, boxY + 142);
+    ctx.font = "600 22px Inter, sans-serif";
+    ctx.fillText(c.label, colCx, boxY + 128);
     setSpacing(ctx, "0px");
   });
 
-  if (data.versionLabel) {
-    ctx.fillStyle = "rgba(155,150,176,0.6)";
-    setSpacing(ctx, "3px");
-    ctx.font = "600 22px Inter, sans-serif";
-    ctx.fillText(data.versionLabel.toUpperCase(), cx, 1176);
-    setSpacing(ctx, "0px");
-  }
-
   // Versículo
   ctx.fillStyle = "rgba(155,150,176,0.85)";
-  ctx.font = "italic 500 30px Cinzel, serif";
-  ctx.fillText("“Lâmpada para os meus pés é a tua palavra.” — Sl 119:105", cx, 1236);
+  fitFont(
+    ctx,
+    "“Lâmpada para os meus pés é a tua palavra.” — Sl 119:105",
+    "italic 500",
+    "Cinzel, serif",
+    28,
+    940,
+  );
+  ctx.fillText("“Lâmpada para os meus pés é a tua palavra.” — Sl 119:105", cx, 968);
 
-  // Rodapé: site
+  // Rodapé: site (com folga da borda inferior)
   ctx.fillStyle = "#F0C75E";
   setSpacing(ctx, "4px");
-  ctx.font = "600 34px Inter, sans-serif";
-  ctx.fillText(SITE_DISPLAY, cx, 1300);
+  ctx.font = "600 32px Inter, sans-serif";
+  ctx.fillText(SITE_DISPLAY, cx, 1018);
   setSpacing(ctx, "0px");
 
   return new Promise<Blob>((resolve, reject) => {
