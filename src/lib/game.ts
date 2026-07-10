@@ -8,3 +8,6 @@ export function applySoloAnswer(stats: SoloStats, isCorrect: boolean): SoloStats
 }
 
 export const INITIAL_SOLO_STATS: SoloStats = { answered: 0, correct: 0 };
+
+/** Pontos por acerto no modo solo (mesma regra anunciada na home). */
+export const SOLO_POINTS_PER_CORRECT = 10;

@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { QuestionCard } from "@/components/game/QuestionCard";
 import { AnswerOption } from "@/components/game/AnswerOption";
 import { ScoreBoard } from "@/components/game/ScoreBoard";
+import { SoloResult } from "@/components/game/SoloResult";
 import { LoadingState } from "@/components/game/LoadingState";
 import { Button } from "@/components/ui/button";
 import { generateQuestion } from "@/lib/bible";
@@ -17,7 +18,7 @@ import { getVersion, loadBooks } from "@/lib/versions";
 import { formatAccuracy } from "@/lib/utils";
 import type { Book } from "@/types/bible";
 import type { Question, SoloStats } from "@/types/game";
-import { ArrowRight, Home, RotateCcw } from "lucide-react";
+import { ArrowRight, Flag, Home, RotateCcw } from "lucide-react";
 
 export default function SoloGamePage() {
   const [books, setBooks] = useState<Book[] | null>(null);
@@ -26,6 +27,7 @@ export default function SoloGamePage() {
   const [stats, setStats] = useState<SoloStats>(INITIAL_SOLO_STATS);
   const [selected, setSelected] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("");
+  const [finished, setFinished] = useState(false);
 
   usePlayingPresence();
 
@@ -74,6 +76,7 @@ export default function SoloGamePage() {
     if (!books) return;
     setStats(INITIAL_SOLO_STATS);
     setSelected(null);
+    setFinished(false);
     setQuestion(generateQuestion(books));
   }
 
@@ -83,6 +86,17 @@ export default function SoloGamePage() {
         <AppHeader />
         <LoadingState message="Preparando o primeiro versículo..." />
       </main>
+    );
+  }
+
+  if (finished) {
+    return (
+      <SoloResult
+        playerName={playerName}
+        versionLabel={versionLabel}
+        stats={stats}
+        onRestart={restart}
+      />
     );
   }
 
@@ -98,11 +112,21 @@ export default function SoloGamePage() {
               <span className="ml-2 text-xs text-muted2">· {versionLabel}</span>
             )}
           </p>
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <Home className="h-4 w-4" /> Início
+          <div className="flex items-center gap-2">
+            <Button
+              variant="subtle"
+              size="sm"
+              onClick={() => setFinished(true)}
+              disabled={stats.answered === 0}
+            >
+              <Flag className="h-4 w-4" /> Finalizar
             </Button>
-          </Link>
+            <Link href="/">
+              <Button variant="ghost" size="sm">
+                <Home className="h-4 w-4" /> Início
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <ScoreBoard stats={boardStats} />
@@ -146,7 +170,10 @@ export default function SoloGamePage() {
               <Button onClick={nextQuestion} size="lg">
                 Próxima pergunta <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button variant="subtle" onClick={restart}>
+              <Button variant="subtle" onClick={() => setFinished(true)}>
+                <Flag className="h-4 w-4" /> Finalizar partida
+              </Button>
+              <Button variant="ghost" onClick={restart}>
                 <RotateCcw className="h-4 w-4" /> Reiniciar
               </Button>
             </div>
