@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HeroSection } from "@/components/layout/HeroSection";
 import { ModeCard } from "@/components/layout/ModeCard";
+import { InstagramLink } from "@/components/common/InstagramLink";
 import { BookOpen, Users } from "lucide-react";
 
 export default function HomePage() {
@@ -28,6 +29,9 @@ export default function HomePage() {
       </section>
 
       <footer className="mt-auto px-5 pb-8 text-center text-xs text-muted2/70">
+        <div className="mb-4 flex justify-center">
+          <InstagramLink />
+        </div>
         <p className="font-display tracking-[0.2em]">
           “Lâmpada para os meus pés é a tua palavra.” — Salmos 119:105
         </p>

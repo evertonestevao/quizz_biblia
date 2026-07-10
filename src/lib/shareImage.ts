@@ -15,6 +15,8 @@ export interface ResultImageData {
 /** Domínio exibido no rodapé da imagem e usado no link de compartilhamento. */
 export const SITE_DISPLAY = "www.cristaoquiz.com.br";
 export const SITE_URL = "https://www.cristaoquiz.com.br";
+/** @ do Instagram, incluído no rodapé da imagem para facilitar a marcação. */
+export const INSTAGRAM_HANDLE = "@cristao.quiz";
 
 // letterSpacing existe no CanvasRenderingContext2D moderno, mas nem todo
 // @types cobre — setter tipado para não quebrar o build.
@@ -230,11 +232,12 @@ export async function generateResultImage(data: ResultImageData): Promise<Blob> 
   );
   ctx.fillText("“Lâmpada para os meus pés é a tua palavra.” — Sl 119:105", cx, 968);
 
-  // Rodapé: site (com folga da borda inferior)
+  // Rodapé: Instagram + site (auto-ajusta para caber, com folga da borda)
+  const footer = `${INSTAGRAM_HANDLE}  ·  ${SITE_DISPLAY}`;
   ctx.fillStyle = "#F0C75E";
-  setSpacing(ctx, "4px");
-  ctx.font = "600 32px Inter, sans-serif";
-  ctx.fillText(SITE_DISPLAY, cx, 1018);
+  setSpacing(ctx, "2px");
+  fitFont(ctx, footer, "600", "Inter, sans-serif", 32, 900);
+  ctx.fillText(footer, cx, 1018);
   setSpacing(ctx, "0px");
 
   return new Promise<Blob>((resolve, reject) => {

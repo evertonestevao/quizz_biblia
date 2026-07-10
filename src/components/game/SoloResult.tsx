@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
+import { InstagramLink } from "@/components/common/InstagramLink";
 import { SOLO_POINTS_PER_CORRECT } from "@/lib/game";
 import { shareResultImage } from "@/lib/shareImage";
 import type { SoloStats } from "@/types/game";
@@ -202,6 +203,10 @@ export function SoloResult({
                 <Home className="h-4 w-4" /> Início
               </Button>
             </Link>
+          </div>
+
+          <div className="flex justify-center pt-1">
+            <InstagramLink />
           </div>
         </div>
       </div>

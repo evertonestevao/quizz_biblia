@@ -7,6 +7,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { RankingPodium } from "@/components/room/RankingPodium";
 import { ResultTable } from "@/components/room/ResultTable";
+import { InstagramLink } from "@/components/common/InstagramLink";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -217,6 +218,10 @@ export default function ResultadoPage() {
                 <Home className="h-4 w-4" /> Voltar ao início
               </Button>
             </Link>
+          </div>
+
+          <div className="flex justify-center pt-1">
+            <InstagramLink />
           </div>
         </div>
       </div>
