@@ -172,8 +172,10 @@ export default function AdminStatsPage() {
         </div>
 
         <div className="mt-4 rounded-xl border border-white/[0.14] bg-white/[0.03] p-5">
-          <h2 className="text-sm font-semibold text-parchment">Sessões por dia (14 dias)</h2>
-          <p className="mb-4 mt-0.5 text-xs text-muted2">Composição salas × solo. Passe o mouse para o detalhe do dia.</p>
+          <h2 className="text-sm font-semibold text-parchment">Sessões por dia</h2>
+          <p className="mb-4 mt-0.5 text-xs text-muted2">
+            Composição salas × solo · últimos 14 dias (7 no celular). Passe o mouse para o detalhe do dia.
+          </p>
           {report ? (
             <AudienceTrend data={report.daily} />
           ) : (
