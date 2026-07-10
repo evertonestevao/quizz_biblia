@@ -13,6 +13,12 @@ import type {
 /** Duração (segundos) da contagem regressiva "Prepare-se" antes da 1ª pergunta. */
 export const COUNTDOWN_SECONDS = 5;
 
+/** Rate limit da criação de salas por device_id (ajustável por env na Vercel). */
+const ROOM_RATE_LIMIT_MAX = Number(process.env.NEXT_PUBLIC_ROOM_RATE_LIMIT_MAX ?? 20);
+const ROOM_RATE_LIMIT_WINDOW_SECONDS = Number(
+  process.env.NEXT_PUBLIC_ROOM_RATE_LIMIT_WINDOW_SECONDS ?? 600,
+);
+
 /** Evento de broadcast disparado no canal do lobby quando a contagem começa. */
 export const COUNTDOWN_EVENT = "countdown";
 
@@ -50,6 +56,23 @@ export async function createRoom(params: {
   bibleVersion: string;
 }): Promise<{ room: Room; player: Player }> {
   const supabase = requireSupabase();
+
+  // Anti-spam: limita a criação de salas por device_id numa janela de tempo.
+  // A checagem/registro é atômica no servidor. Falha da RPC => fail open (não
+  // impede a criação), para não travar usuários legítimos por indisponibilidade.
+  const deviceId = getDeviceId();
+  if (deviceId) {
+    const { data: allowed, error } = await supabase.rpc("log_room_creation", {
+      p_device_id: deviceId,
+      p_max: ROOM_RATE_LIMIT_MAX,
+      p_window_seconds: ROOM_RATE_LIMIT_WINDOW_SECONDS,
+    });
+    if (!error && allowed === false) {
+      throw new Error(
+        "Você criou muitas salas recentemente. Aguarde alguns minutos e tente novamente.",
+      );
+    }
+  }
 
   let room: Room | null = null;
   // Tenta alguns códigos até achar um livre (colisão é raríssima)

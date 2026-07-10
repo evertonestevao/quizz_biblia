@@ -383,6 +383,68 @@ grant execute on function public.next_question(uuid) to anon, authenticated;
 grant execute on function public.submit_answer(uuid, uuid, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- Rate limiting da criação de salas por device_id (anti-spam).
+-- Log privado (sem políticas públicas: só a função SECURITY DEFINER acessa).
+-- ---------------------------------------------------------------------
+
+create table if not exists public.room_creation_log (
+  id uuid primary key default gen_random_uuid(),
+  device_id text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_room_creation_log_device
+  on public.room_creation_log (device_id, created_at);
+
+alter table public.room_creation_log enable row level security;
+
+-- Registra uma tentativa de criação e devolve se ela está DENTRO do limite.
+-- Atômico por device (advisory lock) para não passar do limite em corridas.
+-- Retorna true = pode criar (já registrou); false = estourou o limite (não registra).
+create or replace function public.log_room_creation(
+  p_device_id text,
+  p_max integer default 20,
+  p_window_seconds integer default 600
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_max integer := least(greatest(coalesce(p_max, 20), 1), 500);
+  v_window integer := least(greatest(coalesce(p_window_seconds, 600), 10), 86400);
+  v_count integer;
+begin
+  -- Sem device_id não dá para agrupar: não bloqueia (fail open).
+  if p_device_id is null or p_device_id = '' then
+    return true;
+  end if;
+
+  -- Serializa as chamadas do mesmo device dentro desta transação.
+  perform pg_advisory_xact_lock(hashtext(p_device_id));
+
+  -- Limpa registros fora da janela deste device (mantém a tabela enxuta).
+  delete from room_creation_log
+   where device_id = p_device_id
+     and created_at < now() - make_interval(secs => v_window);
+
+  select count(*) into v_count
+    from room_creation_log
+   where device_id = p_device_id;
+
+  if v_count >= v_max then
+    return false; -- estourou: não registra nova criação
+  end if;
+
+  insert into room_creation_log (device_id) values (p_device_id);
+  return true;
+end;
+$$;
+
+grant execute on function public.log_room_creation(text, integer, integer) to anon, authenticated;
+
+-- ---------------------------------------------------------------------
 -- Faxina de salas órfãs (TTL) — rede de segurança server-side, além da
 -- transferência de host / abandono feitos pelos clientes (via presence).
 -- Marca como "finished" (não apaga, para preservar as métricas de audiência)
