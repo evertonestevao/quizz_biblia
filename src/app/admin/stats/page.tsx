@@ -187,7 +187,10 @@ export default function AdminStatsPage() {
       <hr className="my-10 border-white/[0.08]" />
 
       <h2 className="text-lg font-semibold text-parchment">Localização dos jogadores</h2>
-      <p className="mt-1 text-sm text-muted2">Origem aproximada (geo-IP) de quem entrou nas salas.</p>
+      <p className="mt-1 text-sm text-muted2">
+        Origem aproximada (geo-IP) de quem jogou. No total agregado inclui salas e solo; por
+        partida mostra só os jogadores daquela sala.
+      </p>
 
       <div className="mt-6 flex flex-wrap items-end gap-4">
         <div className="flex gap-2">

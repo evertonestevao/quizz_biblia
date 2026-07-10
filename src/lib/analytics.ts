@@ -25,3 +25,22 @@ export function trackSoloSession(bibleVersion: string): void {
     // ignora silenciosamente
   }
 }
+
+/**
+ * Registra (fire-and-forget) a localização aproximada (geo-IP) de quem jogou solo,
+ * só para visualização agregada no mapa do painel. A geolocalização é feita no
+ * servidor a partir do IP; aqui só disparamos o POST. Não roda offline.
+ */
+export function trackSoloLocation(): void {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  try {
+    void fetch("/api/track-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: "solo" }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // ignora silenciosamente
+  }
+}

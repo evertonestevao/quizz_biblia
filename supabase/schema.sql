@@ -60,6 +60,7 @@ create table if not exists public.answers (
 create table if not exists public.player_locations (
   id uuid primary key default gen_random_uuid(),
   room_id uuid references public.rooms(id) on delete cascade,
+  source text not null default 'room', -- 'room' (entrou numa sala) ou 'solo'
   city text,
   state text,
   country text,
@@ -111,6 +112,11 @@ alter table public.rooms
 -- não quebrar registros de jogadores criados antes desta coluna existir.
 alter table public.players
   add column if not exists device_id text;
+
+-- Origem da localização: 'room' (entrou numa sala) ou 'solo'. Registros antigos
+-- (todos de sala) recebem 'room' pelo default.
+alter table public.player_locations
+  add column if not exists source text not null default 'room';
 
 -- ---------------------------------------------------------------------
 -- Índices

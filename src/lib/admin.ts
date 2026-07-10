@@ -11,7 +11,8 @@ export interface RoomSummary {
 
 export interface PlayerLocation {
   id: string;
-  room_id: string;
+  room_id: string | null;
+  source: "room" | "solo" | null;
   city: string | null;
   state: string | null;
   country: string | null;
