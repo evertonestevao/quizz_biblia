@@ -7,6 +7,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlayerNameForm } from "@/components/room/PlayerNameForm";
 import { PlayerList } from "@/components/room/PlayerList";
+import { ShareWhatsAppButton } from "@/components/room/ShareWhatsAppButton";
 import { LoadingState } from "@/components/game/LoadingState";
 import { EmptyState } from "@/components/game/EmptyState";
 import {
@@ -34,6 +35,11 @@ export default function RoomLobbyPage() {
 
   usePlayingPresence();
 
+  // URL da sala para compartilhar (client-side, evita mismatch de hidratação).
+  useEffect(() => {
+    setRoomUrl(window.location.href);
+  }, []);
+
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -44,6 +50,7 @@ export default function RoomLobbyPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [roomUrl, setRoomUrl] = useState("");
   const roomRef = useRef<Room | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -260,10 +267,13 @@ export default function RoomLobbyPage() {
           <p className="font-display text-5xl font-bold tracking-[0.25em] gold-text">
             {room.code}
           </p>
-          <Button variant="subtle" className="w-full" onClick={copyLink}>
-            {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Link copiado!" : "Copiar link de convite"}
-          </Button>
+          <div className="space-y-2">
+            <Button variant="subtle" className="w-full" onClick={copyLink}>
+              {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
+              {copied ? "Link copiado!" : "Copiar link de convite"}
+            </Button>
+            <ShareWhatsAppButton roomCode={room.code} roomUrl={roomUrl} />
+          </div>
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-muted2">
             <span className="inline-flex items-center gap-1.5">
               <Timer className="h-4 w-4 text-gold-400" /> {room.question_duration}s por pergunta
