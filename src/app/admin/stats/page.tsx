@@ -26,11 +26,13 @@ const LocationsMap = dynamic(() => import("@/components/admin/LocationsMap"), {
 });
 
 type Mode = "room" | "all";
+type SourceFilter = "all" | "room" | "solo";
 
 export default function AdminStatsPage() {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<string>("");
   const [mode, setMode] = useState<Mode>("room");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [groups, setGroups] = useState<CityGroup[]>([]);
   const [points, setPoints] = useState<MapPoint[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,11 @@ export default function AdminStatsPage() {
     setError("");
     (async () => {
       try {
-        const locations = await fetchLocations(roomId);
+        let locations = await fetchLocations(roomId);
+        // O filtro salas/solo só se aplica ao total agregado (por partida é sempre sala).
+        if (mode === "all" && sourceFilter !== "all") {
+          locations = locations.filter((l) => (l.source ?? "room") === sourceFilter);
+        }
         const grouped = groupByCity(locations);
         if (cancelled) return;
         setGroups(grouped);
@@ -103,7 +109,7 @@ export default function AdminStatsPage() {
       cancelled = true;
     };
     // roomId deriva de mode+selectedRoom
-  }, [mode, selectedRoom, roomId]);
+  }, [mode, selectedRoom, roomId, sourceFilter]);
 
   const totalPlayers = useMemo(() => groups.reduce((sum, g) => sum + g.count, 0), [groups]);
 
@@ -213,6 +219,32 @@ export default function AdminStatsPage() {
                 </option>
               ))}
             </Select>
+          </div>
+        )}
+
+        {mode === "all" && (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={sourceFilter === "all" ? "gold" : "subtle"}
+              onClick={() => setSourceFilter("all")}
+            >
+              Tudo
+            </Button>
+            <Button
+              size="sm"
+              variant={sourceFilter === "room" ? "gold" : "subtle"}
+              onClick={() => setSourceFilter("room")}
+            >
+              Salas
+            </Button>
+            <Button
+              size="sm"
+              variant={sourceFilter === "solo" ? "gold" : "subtle"}
+              onClick={() => setSourceFilter("solo")}
+            >
+              Solo
+            </Button>
           </div>
         )}
       </div>
