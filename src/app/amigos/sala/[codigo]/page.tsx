@@ -22,6 +22,7 @@ import {
 } from "@/lib/room";
 import { getSession, saveSession } from "@/lib/storage";
 import { usePlayingPresence } from "@/hooks/usePlayingPresence";
+import { useRoomHost } from "@/hooks/useRoomHost";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Player, Room } from "@/types/room";
@@ -72,6 +73,17 @@ export default function RoomLobbyPage() {
     }
     setPlayers(freshPlayers);
   }, [router]);
+
+  // Transferência automática de anfitrião se o host cair (via presence).
+  const { becameHost } = useRoomHost({
+    roomId: room?.id ?? null,
+    playerId,
+    hostPlayerId: room?.host_player_id ?? null,
+    players,
+    roomStatus: room?.status ?? null,
+    active: status === "lobby",
+    onHostChanged: () => refresh(),
+  });
 
   // Carga inicial
   useEffect(() => {
@@ -260,6 +272,11 @@ export default function RoomLobbyPage() {
     <main className="min-h-dvh pb-12">
       <AppHeader />
       <div className="mx-auto max-w-md space-y-5 px-5">
+        {becameHost && (
+          <div className="animate-fadeUp rounded-xl border border-gold-500/40 bg-gold-500/10 px-4 py-3 text-center text-sm font-semibold text-gold-200">
+            👑 O anfitrião saiu — agora você é o anfitrião da sala!
+          </div>
+        )}
         <Card className="animate-fadeUp space-y-5 p-7 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted2">
             Código da sala

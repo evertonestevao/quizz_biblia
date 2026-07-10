@@ -219,6 +219,46 @@ export async function joinRoom(
 }
 
 /**
+ * Promove um jogador a anfitrião, mas só se o host atual ainda for
+ * `expectedOldHostId` — a condição no `host_player_id` torna a troca atômica:
+ * mesmo que vários clientes tentem ao mesmo tempo, só um vence a corrida.
+ * Retorna true se este cliente efetivou a troca.
+ */
+export async function claimHost(
+  roomId: string,
+  newHostId: string,
+  expectedOldHostId: string | null,
+): Promise<boolean> {
+  const supabase = requireSupabase();
+  let query = supabase.from("rooms").update({ host_player_id: newHostId }).eq("id", roomId);
+  query = expectedOldHostId
+    ? query.eq("host_player_id", expectedOldHostId)
+    : query.is("host_player_id", null);
+  const { data, error } = await query.select("id");
+  if (error) return false;
+  return Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * Marca a sala como encerrada quando ela esvaziou. Só age em salas ainda no
+ * lobby (não interfere numa partida em andamento nem na navegação lobby→jogo,
+ * onde o status já é "countdown"/"playing"). Best-effort: falhas são ignoradas.
+ */
+export async function markRoomAbandoned(roomId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase
+      .from("rooms")
+      .update({ status: "finished" })
+      .eq("id", roomId)
+      .eq("status", "lobby");
+  } catch {
+    // best-effort: nada a fazer se falhar
+  }
+}
+
+/**
  * Registra (fire-and-forget) a localização aproximada do jogador via geo-IP no servidor.
  * Não bloqueia nem atrasa o fluxo de entrada; falhas são ignoradas.
  */

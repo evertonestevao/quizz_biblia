@@ -21,6 +21,7 @@ import {
 } from "@/lib/room";
 import { getSession } from "@/lib/storage";
 import { usePlayingPresence } from "@/hooks/usePlayingPresence";
+import { useRoomHost } from "@/hooks/useRoomHost";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { rankPlayers } from "@/lib/scoring";
 import type {
@@ -48,6 +49,7 @@ export default function MultiplayerGamePage() {
   const [result, setResult] = useState<SubmitAnswerResult | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [countdownLeft, setCountdownLeft] = useState(COUNTDOWN_SECONDS);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
 
   const playerIdRef = useRef<string | null>(null);
   const roomRef = useRef<Room | null>(null);
@@ -132,6 +134,18 @@ export default function MultiplayerGamePage() {
     setPlayers(freshPlayers);
   }, [code, router, loadCurrentQuestion]);
 
+  // Transferência automática de anfitrião se o host cair durante a partida —
+  // mantém o avanço das perguntas (feito pelo host) funcionando.
+  const { becameHost } = useRoomHost({
+    roomId: room?.id ?? null,
+    playerId: myPlayerId,
+    hostPlayerId: room?.host_player_id ?? null,
+    players,
+    roomStatus: room?.status ?? null,
+    active: Boolean(room) && room?.status !== "finished",
+    onHostChanged: () => refresh(),
+  });
+
   // Bootstrap
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -144,6 +158,7 @@ export default function MultiplayerGamePage() {
       return;
     }
     playerIdRef.current = session.playerId;
+    setMyPlayerId(session.playerId);
     (async () => {
       offsetRef.current = await getServerTimeOffsetMs();
       await refresh();
@@ -330,6 +345,11 @@ export default function MultiplayerGamePage() {
     <main className="min-h-dvh pb-12">
       <AppHeader />
       <div className="mx-auto max-w-2xl space-y-5 px-5">
+        {becameHost && (
+          <div className="animate-fadeUp rounded-xl border border-gold-500/40 bg-gold-500/10 px-4 py-3 text-center text-sm font-semibold text-gold-200">
+            👑 O anfitrião saiu — você assumiu como anfitrião da partida.
+          </div>
+        )}
         <div className="flex items-center justify-between text-sm text-muted2">
           <span>
             Sala{" "}

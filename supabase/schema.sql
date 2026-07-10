@@ -383,6 +383,63 @@ grant execute on function public.next_question(uuid) to anon, authenticated;
 grant execute on function public.submit_answer(uuid, uuid, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- Faxina de salas órfãs (TTL) — rede de segurança server-side, além da
+-- transferência de host / abandono feitos pelos clientes (via presence).
+-- Marca como "finished" (não apaga, para preservar as métricas de audiência)
+-- qualquer sala não finalizada cuja ÚLTIMA atividade seja mais antiga que o TTL.
+-- "Última atividade" = a mais recente entre: criação da sala, início da
+-- contagem, início da última pergunta, última resposta e última entrada de
+-- jogador. Retorna quantas salas foram encerradas.
+-- ---------------------------------------------------------------------
+
+create or replace function public.cleanup_stale_rooms(p_ttl interval default interval '2 hours')
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+begin
+  with stale as (
+    update rooms r
+       set status = 'finished'
+     where r.status <> 'finished'
+       and greatest(
+             r.created_at,
+             coalesce(r.countdown_started_at, r.created_at),
+             coalesce((select max(started_at)  from room_questions q where q.room_id = r.id), r.created_at),
+             coalesce((select max(answered_at) from answers a         where a.room_id = r.id), r.created_at),
+             coalesce((select max(joined_at)   from players p         where p.room_id = r.id), r.created_at)
+           ) < now() - p_ttl
+    returning 1
+  )
+  select count(*) into v_count from stale;
+  return v_count;
+end;
+$$;
+
+grant execute on function public.cleanup_stale_rooms(interval) to service_role;
+
+-- Agendamento a cada 15 minutos via pg_cron. Se a extensão ainda não estiver
+-- habilitada, ative em Dashboard → Database → Extensions → pg_cron (ou o
+-- create abaixo). Idempotente: remove um agendamento anterior de mesmo nome.
+create extension if not exists pg_cron;
+
+do $$
+begin
+  perform cron.unschedule('cleanup-stale-rooms');
+exception
+  when others then null; -- ainda não existia
+end $$;
+
+select cron.schedule(
+  'cleanup-stale-rooms',
+  '*/15 * * * *',
+  $$select public.cleanup_stale_rooms(interval '2 hours')$$
+);
+
+-- ---------------------------------------------------------------------
 -- Realtime: adiciona as tabelas à publicação padrão do Supabase
 -- ---------------------------------------------------------------------
 
