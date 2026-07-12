@@ -44,3 +44,22 @@ export function trackSoloLocation(): void {
     // ignora silenciosamente
   }
 }
+
+/**
+ * Notifica (fire-and-forget) o Telegram de que um jogo solo começou, com nome,
+ * versão e (no servidor) localização e conexões ativas. Só roda online; falhas
+ * são ignoradas e nunca atrapalham o fluxo do jogo.
+ */
+export function notifySoloStart(playerName: string, versionLabel: string): void {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  try {
+    void fetch("/api/notify-solo-start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerName, versionLabel }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // ignora silenciosamente
+  }
+}

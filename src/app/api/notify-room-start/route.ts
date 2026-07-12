@@ -2,25 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSupabase } from "@/lib/serverSupabase";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { countPlayingPresence } from "@/lib/presenceServer";
+import { formatSaoPaulo } from "@/lib/datetime";
 
 export const runtime = "nodejs";
-
-const SP_TZ = "America/Sao_Paulo";
-
-function formatSaoPaulo(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("pt-BR", {
-      timeZone: SP_TZ,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
 /**
  * Notifica (fire-and-forget) um bot do Telegram quando uma sala é iniciada.

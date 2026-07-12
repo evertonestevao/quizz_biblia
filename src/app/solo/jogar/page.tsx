@@ -11,7 +11,7 @@ import { LoadingState } from "@/components/game/LoadingState";
 import { Button } from "@/components/ui/button";
 import { generateQuestion } from "@/lib/bible";
 import { applySoloAnswer, INITIAL_SOLO_STATS } from "@/lib/game";
-import { trackSoloSession, trackSoloLocation } from "@/lib/analytics";
+import { trackSoloSession, trackSoloLocation, notifySoloStart } from "@/lib/analytics";
 import { usePlayingPresence } from "@/hooks/usePlayingPresence";
 import { getSoloName, getSoloVersion } from "@/lib/storage";
 import { getVersion, loadBooks } from "@/lib/versions";
@@ -32,11 +32,14 @@ export default function SoloGamePage() {
   usePlayingPresence();
 
   useEffect(() => {
-    setPlayerName(getSoloName() || "Jogador");
+    const soloName = getSoloName() || "Jogador";
     const versionId = getSoloVersion();
-    setVersionLabel(getVersion(versionId).label.split(" — ")[0]);
+    const shortVersion = getVersion(versionId).label.split(" — ")[0];
+    setPlayerName(soloName);
+    setVersionLabel(shortVersion);
     trackSoloSession(versionId);
     trackSoloLocation();
+    notifySoloStart(soloName, shortVersion);
     loadBooks(versionId).then((loaded) => {
       setBooks(loaded);
       setQuestion(generateQuestion(loaded));
