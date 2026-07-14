@@ -33,3 +33,9 @@ export function formatAccuracy(correct: number, answered: number): string {
   if (answered === 0) return "0%";
   return `${Math.round((correct / answered) * 100)}%`;
 }
+
+export function vibrateShort(ms = 50): void {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(ms);
+  }
+}

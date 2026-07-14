@@ -20,6 +20,7 @@ import {
   submitAnswer,
 } from "@/lib/room";
 import { getSession } from "@/lib/storage";
+import { vibrateShort } from "@/lib/utils";
 import { usePlayingPresence } from "@/hooks/usePlayingPresence";
 import { useRoomHost } from "@/hooks/useRoomHost";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -275,6 +276,10 @@ export default function MultiplayerGamePage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, question?.id, question?.status, question?.ends_at]);
+
+  useEffect(() => {
+    if (question) vibrateShort();
+  }, [question?.id]);
 
   function triggerAdvance(questionId: string) {
     if (advancedForRef.current === questionId) return;

@@ -15,7 +15,7 @@ import { trackSoloSession, trackSoloLocation, notifySoloStart } from "@/lib/anal
 import { usePlayingPresence } from "@/hooks/usePlayingPresence";
 import { getSoloName, getSoloVersion } from "@/lib/storage";
 import { getVersion, loadBooks } from "@/lib/versions";
-import { formatAccuracy } from "@/lib/utils";
+import { formatAccuracy, vibrateShort } from "@/lib/utils";
 import type { Book } from "@/types/bible";
 import type { Question, SoloStats } from "@/types/game";
 import { ArrowRight, Flag, Home, RotateCcw } from "lucide-react";
@@ -45,6 +45,10 @@ export default function SoloGamePage() {
       setQuestion(generateQuestion(loaded));
     });
   }, []);
+
+  useEffect(() => {
+    if (question) vibrateShort();
+  }, [question]);
 
   const revealed = selected !== null;
   const isCorrect = revealed && selected === question?.correctReference;
